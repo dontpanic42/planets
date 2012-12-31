@@ -208,27 +208,27 @@ Planets.Viewport.prototype.rectVisible = function(x1, y1, x2, y2) {
 // Handle viewport offset when mouse is in hot corners
 Planets.Viewport.prototype.handleMouse = function(mouse) {
 	if(mouse.position.y + this.offset.y < this.moveCorner) 	{
-		this.offset.y -= this.moveSpeed;
-		if(this.offset.y < this.vh - this.h) 
-			this.offset.y = (this.vh - this.h);
-	}
-
-	if(mouse.position.y + this.offset.y > this.vh - this.moveCorner) {
 		this.offset.y += this.moveSpeed;
 		if(this.offset.y > 0)
 			this.offset.y = 0;
 	}
 
-	if(mouse.position.x + this.offset.x < this.moveCorner) {
-		this.offset.x -= this.moveSpeed;
-		if(this.offset.x < this.vw - this.w)
-			this.offset.x = (this.vw - this.w);
+	if(mouse.position.y + this.offset.y > this.vh - this.moveCorner) {
+		this.offset.y -= this.moveSpeed;
+		if(this.offset.y < this.vh - this.h) 
+			this.offset.y = (this.vh - this.h);
 	}
 
-	if(mouse.position.x + this.offset.x > this.vw - this.moveCorner) {
+	if(mouse.position.x + this.offset.x < this.moveCorner) {
 		this.offset.x += this.moveSpeed;
 		if(this.offset.x > 0)
 			this.offset.x = 0;
+	}
+
+	if(mouse.position.x + this.offset.x > this.vw - this.moveCorner) {
+		this.offset.x -= this.moveSpeed;
+		if(this.offset.x < this.vw - this.w)
+			this.offset.x = (this.vw - this.w);
 	}
 }
 
@@ -361,7 +361,7 @@ Planets.Renderable.Planet = function(position, radius) {
 	this.shipSelected = 0;
 	console.log(this.color);
 }
-Planets.Renderable.Planet.colors = ["rgb(109,133,193","rgb(173,116,109)","rgb(239,175,65)"];
+Planets.Renderable.Planet.colors = ["rgb(109,133,193)","rgb(173,116,109)","rgb(239,175,65)"];
 Planets.Renderable.Planet.prototype = new Planets.Renderable();
 Planets.Renderable.Planet.prototype.constructor = Planets.Renderable.Planet;
 
