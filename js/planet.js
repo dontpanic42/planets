@@ -617,7 +617,7 @@ Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
  	//if not in orbit or moving to target, draw the "engine exhaust"
 	if(!this.orbit || this.currentMoveTarget) {
 		context.beginPath();
-		context.fillStyle = "rgba(255, 255, 255, 0.5";
+		context.fillStyle = "rgba(255, 255, 255, 0.5)";
 		context.arc(
 				-2, 0, 2, 0, PI2
 			);
