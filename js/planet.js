@@ -303,16 +303,16 @@ Planets.Viewport.prototype.handleKeydown = function() {
 
 	if(this.key.keymap[Keys.LEFT])	{
 		this.bgUpdated = true;
-		this.offset.x -= this.moveSpeed;
-		if(this.offset.x < this.vw - this.w)
-			this.offset.x = (this.vw - this.w);
+		this.offset.x += this.moveSpeed;
+		if(this.offset.x > 0)
+			this.offset.x = 0;
 	}
 
 	if(this.key.keymap[Keys.RIGHT])	{
 		this.bgUpdated = true;
-		this.offset.x += this.moveSpeed;
-		if(this.offset.x > 0)
-			this.offset.x = 0;
+		this.offset.x -= this.moveSpeed;
+		if(this.offset.x < this.vw - this.w)
+			this.offset.x = (this.vw - this.w);
 	}
 }
 
@@ -418,6 +418,7 @@ Planets.Renderable.Planet = function(position, radius) {
 	this.ships = [];
 	this.shipCount = 0;
 	this.shipSelected = 0;
+	this.renderIndex = this.bgRenderIndex = 0;
 	console.log(this.color);
 }
 Planets.Renderable.Planet.colors = ["rgb(109,133,193)","rgb(173,116,109)","rgb(239,175,65)"];
@@ -501,8 +502,6 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 		context.lineStyle = "rgba(0, 0, 0, 0.2)";
 
 		for(var i = 0; i < this.connections.length; i++) {
-			context.beginPath();
-
 			//TO BE OPTIMIZED :-)
 			var tmp = this.connections[i].position;
 			var tmpr = this.connections[i].radius;
@@ -522,12 +521,12 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 
 			context.moveTo(xa, ya);
 			context.lineTo(xe, ye);
-			context.stroke();
 		}
+
+		context.stroke();
 	}
 
 	if(this.mouseOver) {
-		context.beginPath();
 		context.fillStyle = "#000000";
 		var dim = context.measureText("Fleet: 0");
 		context.fillText("Fleet: " + this.shipCount, x - (dim.width/2), y);
@@ -599,6 +598,7 @@ Planets.Renderable.Ship.prototype.init = function() {
 	this.offset = ((Math.random() * (30 - 10) ) + 10) | 0;
 
 	this.pIndex = 0; //index used in the planet's shiplist, not to be changed.
+	this.renderIndex = this.bgRenderIndex = 0; //used in the main loop, not to be changed.
 	this.attached = true;
 
 	this.currentMoveTarget = null;
@@ -667,7 +667,8 @@ Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
  	context.moveTo(x, y);
  	context.bezierCurveTo(x, y + 4, x + 4, y + 4, x+12, y);
  	context.bezierCurveTo(x+4, y-4, x, y-4, x, y);
- 	context.fill();
+
+	context.fill();
 
  	//if not in orbit or moving to target, draw the "engine exhaust"
 	if(!this.orbit || this.currentMoveTarget) {
