@@ -9,58 +9,60 @@
 	<script type="application/javascript">
 		$(document).ready(function () {
 			console.log("Initializing");
-			var m = new Planets.Main(900, 600);
+			var m = new Planets.Main(2000, 1500);
 				m.init();
 
-			var p1, p2, p3;
-			m.push(p1 = new Planets.Renderable.Planet({x: 200, y: 200}, 40));
-			m.push(p2 = new Planets.Renderable.Planet({x: 700, y: 320}, 80));
-			m.push(p3 = new Planets.Renderable.Planet({x: 400, y: 500}, 40));
-			m.push(p3 = new Planets.Renderable.Planet({x: 100, y: 500}, 40));
+				Planets.Build(m);
 
-			p1.connect(p2);
-			p1.connect(p3);
+			// var p1, p2, p3;
+			// m.push(p1 = new Planets.Renderable.Planet({x: 200, y: 200}, 40));
+			// m.push(p2 = new Planets.Renderable.Planet({x: 700, y: 320}, 80));
+			// m.push(p3 = new Planets.Renderable.Planet({x: 400, y: 500}, 40));
+			// m.push(p3 = new Planets.Renderable.Planet({x: 100, y: 500}, 40));
 
-			p2.connect(p1);
-			p2.connect(p3);
+			// p1.connect(p2);
+			// p1.connect(p3);
 
-			p3.connect(p1);
-			p3.connect(p2);
+			// p2.connect(p1);
+			// p2.connect(p3);
+
+			// p3.connect(p1);
+			// p3.connect(p2);
 
 
-			var s1, s2, s3;
+			// var s1, s2, s3;
 
-			s3 = p1.spawnShip(m);
-			p1.spawnShip(m);
+			// s3 = p1.spawnShip(m);
+			// p1.spawnShip(m);
 
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			p2.spawnShip(m);
-			// m.push(s1 = new Planets.Renderable.Ship(p1).init());
-			// m.push(s2 = new Planets.Renderable.Ship(p1).init());
-			// m.push(s3 = new Planets.Renderable.Ship(p2).init());
-			// m.push(s3 = new Planets.Renderable.Ship(p2).init());
-			// m.push(s3 = new Planets.Renderable.Ship(p2).init());
-			// m.push(s3 = new Planets.Renderable.Ship(p2).init());
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// p2.spawnShip(m);
+			// // m.push(s1 = new Planets.Renderable.Ship(p1).init());
+			// // m.push(s2 = new Planets.Renderable.Ship(p1).init());
+			// // m.push(s3 = new Planets.Renderable.Ship(p2).init());
+			// // m.push(s3 = new Planets.Renderable.Ship(p2).init());
+			// // m.push(s3 = new Planets.Renderable.Ship(p2).init());
+			// // m.push(s3 = new Planets.Renderable.Ship(p2).init());
+
+			// // s3.moveTo(p3);
+			// // s3.moveTo(p2);
+			// // s3.moveTo(p1);
 
 			// s3.moveTo(p3);
 			// s3.moveTo(p2);
 			// s3.moveTo(p1);
-
-			s3.moveTo(p3);
-			s3.moveTo(p2);
-			s3.moveTo(p1);
-			s3.moveTo(p3);
-			s3.moveTo(p2);
-			s3.moveTo(p1);
+			// s3.moveTo(p3);
+			// s3.moveTo(p2);
+			// s3.moveTo(p1);
 
 			m.start();
 		});

@@ -12,7 +12,7 @@ var distance  = function(position1, position2) {
 
 var angulate = function(position1, position2) {
 	var a = Math.atan2(-(position2.y-position1.y), (position2.x-position1.x)) * (512/Math.PI);
-	return 1024 - ((a < 0)? a + 1024 : (a > 1024)? 1024 - a : a);
+	return 1024 - ((a < 0)? a + 1024 : a);
 }
 
 var Keys = {
@@ -21,6 +21,68 @@ var Keys = {
 	UP : 40,
 	DOWN : 38
 };
+
+/***********************************************************************
+ * Glaxy Builder
+ **********************************************************************/
+
+Planets.Build = function(game) {
+	var avgGapX = 400;
+	var avgGapY = 400;
+	var rndGapX = 200;
+	var rndGapY = 160;
+	var avgSize = 40;
+	var rndSize = 40;
+
+	var w = game.w, h = game.h;
+
+	var resX = (w / (avgGapX)) | 0;
+	var resY = (h / (avgGapY)) | 0;
+
+	console.log(resX, resY);
+
+	var rndx, rndy, rnds, o, cache = new Array(resX);
+	for(var x = 1; x < resX; x++) {
+		cache[x] = new Array(resY);
+		for(var y = 1; y < resY; y++) {
+			rndx = ((x * avgGapX) - (rndGapX/2) + (Math.random() * rndGapX)) | 0;
+			rndy = ((y * avgGapY) - (rndGapY/2) + (Math.random() * rndGapY)) | 0;
+			rnds = (avgSize - (rndSize / 2) + (Math.random() * rndSize)) | 0;
+			o = new Planets.Renderable.Planet({x: rndx, y: rndy}, rnds);
+			game.push(o);
+
+			cache[x][y] = o;
+			if(cache[x][y-1]) {
+				o.connect(cache[x][y-1]);
+				cache[x][y-1].connect(o);
+			}
+
+			if(cache[x-1] && cache[x-1][y-1]) {
+				o.connect(cache[x-1][y-1]);
+				cache[x-1][y-1].connect(o);
+			}
+
+			if(cache[x-1] && cache[x-1][y+1]) {
+				o.connect(cache[x-1][y+1]);
+				cache[x-1][y+1].connect(o);
+			}
+
+			if(cache[x-1] && cache[x-1][y]) {
+				o.connect(cache[x-1][y]);
+				cache[x-1][y].connect(o);
+			}
+
+			o.spawnShip(game);
+			o.spawnShip(game);
+			o.spawnShip(game);
+			o.spawnShip(game);
+		}
+	}
+}
+
+/***********************************************************************
+ * Game
+ **********************************************************************/
 
 Planets.Main = function(w, h) { 
 	this.renderList = [];
@@ -101,16 +163,16 @@ Planets.Main.prototype.loop = function() {
 
 	this.context.clearRect(0, 0, this.w, this.h);
 	var i=0, l=this.renderList.length;
-	// console.time("Update");
+	//console.time("Update");
 	for(i = 0; i < l; i++)
 		if(this.renderList[i] != null) 
 			this.renderList[i].update(this, deltaTime, gameTime);
-	// console.timeEnd("Update");
-	// console.time("Render");
+	//console.timeEnd("Update");
+	//console.time("Render");
 	for(i = 0; i < l; i++)
 		if(this.renderList[i] != null)
 			this.renderList[i].render(this, this.context);
-	// console.timeEnd("Render");
+	//console.timeEnd("Render");
 }
 
 /***********************************************************************
@@ -139,6 +201,7 @@ Planets.Mouse.prototype.handler = function(event) {
 }
 
 Planets.Mouse.prototype.wheelHandler = function(event, delta) {
+	event.preventDefault();
 	this.delta = delta;
 	//console.log(this.delta);
 }
@@ -423,7 +486,7 @@ Planets.Renderable.Ship.prototype.update = function(game, deltaTime, gameTime) {
 		var target = this.currentMoveTarget;
 
 		//Reached orbit.
-		if(distance(this.position, target.position) < (target.radius + 20)) {
+		if(distance(this.position, target.position) <= (target.radius + this.offset)) {
 			this.orbit = this.currentMoveTarget;
 			this.currentMoveTarget = null;
 			this.angle = angulate(this.position, this.orbit.position) + 512;
