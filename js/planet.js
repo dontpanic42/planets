@@ -27,8 +27,8 @@ var Keys = {
  **********************************************************************/
 
 Planets.Build = function(game, viewport) {
-	var avgGapX = 400;
-	var avgGapY = 400;
+	var avgGapX = 300;
+	var avgGapY = 300;
 	var rndGapX = 200;
 	var rndGapY = 160;
 	var avgSize = 40;
@@ -39,7 +39,6 @@ Planets.Build = function(game, viewport) {
 	var resX = (w / (avgGapX)) | 0;
 	var resY = (h / (avgGapY)) | 0;
 
-	console.log(resX, resY);
 
 	var rndx, rndy, rnds, o, cache = new Array(resX);
 	for(var x = 1; x < resX; x++) {
@@ -78,6 +77,86 @@ Planets.Build = function(game, viewport) {
 			o.spawnShip(game);
 			o.spawnShip(game);
 		}
+	}
+}
+
+/***********************************************************************
+ * A* Pathfinder
+ **********************************************************************/
+
+Planets.Path = function(start, destination) {
+	var hash = function(node) { return node.position.x + "" + node.position.y; }
+	var heur = function(node1, node2) { return distance(node1.position, node2.position); }
+	var count = function(list) { var counter=0; for(var x in list) counter++; return counter; }
+
+	var f_score = {};
+	var g_score = {};
+
+	var close = {};
+	var open  = {};
+	var path  = [];
+
+	var lowf = function() {
+		var l = Infinity, n = null;
+		for(var i in open) {
+			if(f_score[i] < l) {
+				l = f_score[i];
+				n = open[i];
+			}
+		}
+		return n;
+	};	
+
+	var current;
+	open[hash(start)] = start;
+	g_score[hash(start)] = 0;
+	f_score[hash(start)] = heur(start, destination);
+	var neighbour, t_score, hn, hc;
+
+	while(count(open) != 0) {
+		current = lowf();
+		if(current == destination) { path.push(current); return path; }
+
+		hc = hash(current);
+		delete open[hc];
+		close[hc] = current;
+
+		for(var i = 0; i < current.connections.length; i++) {
+			neighbour = current.connections[i].planet;
+			hn = hash(neighbour);
+			if(hn in close) continue; 
+
+			t_score = g_score[hc] + heur(current, neighbour);
+
+			if( !(hn in open) || 
+				(hn in g_score && t_score < g_score[hash(neighbour)])) {
+				//This isn't in the original algorithm according to
+				//wikipedia but "good paths" afaik do not contain
+				//cycles and it makes reconstructing easier, so
+				//lets do it.
+				if(path.indexOf(current) == -1) path.push(current);
+
+				g_score[hn] = t_score;
+				f_score[hn] = t_score + heur(neighbour, destination);
+
+				if(!(hn in open)) open[hn] = neighbour;
+			}
+			
+		}
+	}
+
+	return null;
+}
+
+Planets.Path.show = function(list) {
+	for(var i = 0; i < list.length - 1; i++) {
+		list[i].showPath = list[i+1];
+	}
+}
+
+Planets.Path.hide = function(list) {
+	for(var i = 0; i < list.length - 1; i++) {
+		list[i].showPath = null;
 	}
 }
 
@@ -333,7 +412,8 @@ Planets.Mouse = function(game, viewport) {
 	this.delta = 0;
 	this.left = viewport.jq_canvas.offset().left;
 	this.top  = viewport.jq_canvas.offset().top;
-	this.currentDown = null;
+	this.currentDown = null;	// Element on which the mousebutton was pressed down
+	this.down = false;
 }
 
 Planets.Mouse.prototype.handler = function(event) {
@@ -344,24 +424,23 @@ Planets.Mouse.prototype.handler = function(event) {
 Planets.Mouse.prototype.wheelHandler = function(event, delta) {
 	event.preventDefault();
 	this.delta = delta;
-	//console.log(this.delta);
 }
 
 Planets.Mouse.prototype.downHandler = function(event) {
 	this.currentDown = this.game.selected;
-	console.log("down", this.currentDown);
+	this.down = true;
 }
 
 Planets.Mouse.prototype.upHandler = function(event) {
 	if( this.currentDown != null && 
 		this.game.selected != null &&
 		this.currentDown != this.game.selected) {
-		this.currentDown.moveSelectedShips(this.game.selected);
-		console.log("moving ships");
+		var path = Planets.Path(this.currentDown, this.game.selected);
+		this.currentDown.moveSelectedShips(this.game.selected, path);
 	}
 	
+	this.down = false;
 	this.currentDown = null;
-	console.log("up");
 }
 
 /***********************************************************************
@@ -419,14 +498,18 @@ Planets.Renderable.Planet = function(position, radius) {
 	this.shipCount = 0;
 	this.shipSelected = 0;
 	this.renderIndex = this.bgRenderIndex = 0;
-	console.log(this.color);
+	this.showPath = null;		// if planet than show path to the planet
+	this.pathList = null;		// if list show path list
 }
 Planets.Renderable.Planet.colors = ["rgb(109,133,193)","rgb(173,116,109)","rgb(239,175,65)"];
 Planets.Renderable.Planet.prototype = new Planets.Renderable();
 Planets.Renderable.Planet.prototype.constructor = Planets.Renderable.Planet;
 
 Planets.Renderable.Planet.prototype.connect = function(planet) {
-	this.connections.push(planet)
+	this.connections.push({
+		planet : planet,
+		weight : distance(this, planet)
+	});
 }
 
 Planets.Renderable.Planet.prototype.spawnShip = function(game) {
@@ -455,12 +538,17 @@ Planets.Renderable.Planet.prototype.removeShip = function(ship) {
 	this.shipCount--;
 }
 
-Planets.Renderable.Planet.prototype.moveSelectedShips = function(target) {
+Planets.Renderable.Planet.prototype.moveSelectedShips = function(target, path) {
 	var len = this.ships.length, counter = 0;
 	for(var i = 0; i < len; i++) {
 		if(counter >= this.shipSelected) return;
 		if(this.ships[i] != null) {
-			this.ships[i].moveTo(target);
+			// this.ships[i].moveTo(target);
+			// this.removeShip(this.ships[i]);
+			// counter++;
+
+			for(var x = 1; x < path.length; x++)
+				this.ships[i].moveTo(path[x]);
 			this.removeShip(this.ships[i]);
 			counter++;
 		}
@@ -481,6 +569,7 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 		this.mouseOver = false;
 	}
 
+
 	if(this.mouseOver) {
 		var delta = Math.round(game.mouse.delta);
 		if(delta != 0) {
@@ -488,6 +577,20 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 			game.mouse.delta = 0;
 		}
 		this.shipSelected = (this.shipSelected < 0)? 0 : (this.shipSelected > this.shipCount)? this.shipCount : this.shipSelected;
+	
+		//Preview possible path to this planet
+		if(game.mouse.down && !this.pathList) {
+			this.pathList = Planets.Path(game.mouse.currentDown, this);
+			if(this.pathList) {
+				Planets.Path.show(this.pathList);
+			}
+		} 
+	} 
+
+	if(this.pathList && (!this.mouseOver || !game.mouse.currentDown)) {
+		//Hide path preview.
+		Planets.Path.hide(this.pathList);
+		this.pathList = null;
 	}
 }
 
@@ -496,33 +599,31 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 
 
 	// Draw connections
-	if(this.mouseOver && this.connections.length >= 0) {
+	if(this.mouseOver && this.connections.length >= 0 && !this.showPath) {
 		context.beginPath();
 		context.lineWidth = 1;
 		context.lineStyle = "rgba(0, 0, 0, 0.2)";
 
 		for(var i = 0; i < this.connections.length; i++) {
 			//TO BE OPTIMIZED :-)
-			var tmp = this.connections[i].position;
-			var tmpr = this.connections[i].radius;
+			var tmp = this.connections[i].planet.position;
+			var tmpr = this.connections[i].planet.radius;
+			this.renderPath(context, viewport, x, y, r, 
+				this.connections[i].planet.position, 
+				this.connections[i].planet.radius);
 
-			var x2 = tmp.x + viewport.offset.x, y2 = tmp.y + viewport.offset.y;
+		} 
 
-			var a = angulate(this.position, tmp);
-			var b = angulate(tmp, this.position);
+		context.stroke();
 
-			var xe = x2 + tmpr * Planets.lookup.cos[b | 0];
-			var ye = y2 + tmpr * Planets.lookup.sin[b | 0];
-
-
-			var xa = x + r * Planets.lookup.cos[a | 0];
-			var ya = y + r * Planets.lookup.sin[a | 0];
-
-
-			context.moveTo(xa, ya);
-			context.lineTo(xe, ye);
-		}
-
+	} else if(this.showPath) {
+		//Draw single connection as path preview
+		context.beginPath();
+		context.lineWidth = 1;
+		context.lineStyle = "rgba(255, 0, 0, 1)";
+		this.renderPath(context, viewport, x, y, r, 
+			this.showPath.position, 
+			this.showPath.radius);
 		context.stroke();
 	}
 
@@ -535,6 +636,24 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 		context.fillText("Selected: " + this.shipSelected, x -(dim.width/2), y + 10);
 	}
 
+}
+
+Planets.Renderable.Planet.prototype.renderPath = function(context, viewport, x, y, r, tpos, trad) {
+	var x2 = tpos.x + viewport.offset.x, y2 = tpos.y + viewport.offset.y;
+
+	var a = angulate(this.position, tpos);
+	var b = angulate(tpos, this.position);
+
+	var xe = x2 + trad * Planets.lookup.cos[b | 0];
+	var ye = y2 + trad * Planets.lookup.sin[b | 0];
+
+
+	var xa = x + r * Planets.lookup.cos[a | 0];
+	var ya = y + r * Planets.lookup.sin[a | 0];
+
+
+	context.moveTo(xa, ya);
+	context.lineTo(xe, ye);
 }
 
 Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context) {
@@ -587,6 +706,11 @@ Planets.Renderable.Ship = function(planet) {
 	this.orbit = planet;
 	this.position = {x: 0, y: 0};
 	this.currentMoveTarget = null;
+	//Randomize base speed to spread ship distribution.
+	//This should be changed to st. that makes sense,
+	//e.g. speed increase with age/
+	//speed decrease with lower health points 
+	this.speed = this.speed + ((Math.random() * 30) | 0);
 }
 Planets.Renderable.Ship.prototype = new Planets.Renderable();
 Planets.Renderable.Ship.prototype.constructor = Planets.Renderable.Ship;
