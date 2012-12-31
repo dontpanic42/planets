@@ -26,7 +26,7 @@ var Keys = {
  * Glaxy Builder
  **********************************************************************/
 
-Planets.Build = function(game) {
+Planets.Build = function(game, viewport) {
 	var avgGapX = 400;
 	var avgGapY = 400;
 	var rndGapX = 200;
@@ -34,7 +34,7 @@ Planets.Build = function(game) {
 	var avgSize = 40;
 	var rndSize = 40;
 
-	var w = game.w, h = game.h;
+	var w = viewport.w, h = viewport.h;
 
 	var resX = (w / (avgGapX)) | 0;
 	var resY = (h / (avgGapY)) | 0;
@@ -88,22 +88,12 @@ Planets.Main = function(w, h) {
 	this.renderList = [];
 	this.slotList = [];
 
-	this.w = w; this.h = h;
+	this.w = w; this.h = h;			//logical height/width
 
-	this.jq_canvas = $('<canvas></canvas>')
-	.width(w)
-	.height(h)
-	.appendTo($('body'));
-
-	this.canvas = this.jq_canvas.get(0);
-	this.canvas.width = w;
-	this.canvas.height = h;
-	this.context = this.canvas.getContext('2d');
 
 	this.interval;
 	this.lastUpdate = this.firstUpdate = (new Date()).getTime();
 
-	this.offset = {x: 0, y: 0};
 
 	this.selected = null;
 }
@@ -117,19 +107,12 @@ Planets.Main.prototype.init = function() {
 		Planets.lookup.sin[i] = Math.sin(ang);
 	}
 
-	this.keymap = new Planets.Keymap();
-	this.keymap.attach(Keys.LEFT, this.moveLeft.bind(this));
-	this.keymap.attach(Keys.RIGHT, this.moveRight.bind(this));
-	this.keymap.attach(Keys.UP, this.moveUp.bind(this));
-	this.keymap.attach(Keys.DOWN, this.moveDown.bind(this));
+	this.key = new Planets.Keymap();
+	this.viewport = new Planets.Viewport(this.key, this, this.w, this.h);
+	this.mouse = new Planets.Mouse(this, this.viewport);
 
-	this.mouse = new Planets.Mouse(this);
+	Planets.Build(this, this.viewport);
 }
-
-Planets.Main.prototype.moveLeft = function(e) { this.offset.x-=5; }
-Planets.Main.prototype.moveRight = function(e) { this.offset.x+=5; }
-Planets.Main.prototype.moveDown = function(e) { this.offset.y-=5; }
-Planets.Main.prototype.moveUp = function(e) { this.offset.y+=5; }
 
 Planets.Main.prototype.start = function() {
 	this.interval = setInterval(this.loop.bind(this), 3);
@@ -161,43 +144,112 @@ Planets.Main.prototype.loop = function() {
 	this.lastUpdate = (new Date()).getTime();
 	var gameTime  = this.lastUpdate - this.firstUpdate;
 
-	this.context.clearRect(0, 0, this.w, this.h);
+	this.viewport.handleKeydown();
+	this.viewport.clear();
+
 	var i=0, l=this.renderList.length;
 	//console.time("Update");
 	for(i = 0; i < l; i++)
 		if(this.renderList[i] != null) 
-			this.renderList[i].update(this, deltaTime, gameTime);
+			this.renderList[i].update(this, this.viewport, deltaTime, gameTime);
 	//console.timeEnd("Update");
 	//console.time("Render");
 	for(i = 0; i < l; i++)
 		if(this.renderList[i] != null)
-			this.renderList[i].render(this, this.context);
+			this.renderList[i].render(this, this.viewport, this.viewport.context);
 	//console.timeEnd("Render");
+}
+
+/***********************************************************************
+ * Viewport
+ **********************************************************************/
+
+Planets.Viewport = function(keyboard, game, w, h) {
+	this.key = keyboard;
+	this.game = game;
+
+	this.w = w;
+	this.h = h;
+
+	this.vw = $(window).width();	//viewport height
+	this.vh = $(window).height();	//viewport width
+
+	this.jq_canvas = $('<canvas></canvas>')
+	.width(this.vw)
+	.height(this.vh)
+	.appendTo($('body'));
+
+	this.canvas = this.jq_canvas.get(0);
+	this.canvas.width = this.vw;
+	this.canvas.height = this.vh;
+	this.context = this.canvas.getContext('2d');
+
+	this.offset = {x: 0, y: 0};
+}
+
+Planets.Viewport.prototype.clear = function() {
+	this.context.clearRect(0, 0, this.vw, this.vh);
+}
+
+Planets.Viewport.prototype.circleVisible = function(x, y, r) {
+	return (
+				true;
+		);
+}
+
+Planets.Viewport.prototype.rectVisible = function(x1, y1, x2, y2) {
+	return true;
+}
+
+Planets.Viewport.prototype.handleKeydown = function() {
+	if(this.key.keymap[Keys.UP]) 	{
+		this.offset.y -= 5;
+		if(this.offset.y < this.vh - this.h) 
+			this.offset.y = (this.vh - this.h);
+	}
+
+	if(this.key.keymap[Keys.DOWN]) {
+		this.offset.y += 5;
+		if(this.offset.y > 0)
+			this.offset.y = 0;
+	}
+
+	if(this.key.keymap[Keys.LEFT])	{
+		this.offset.x -= 5;
+		if(this.offset.x < this.vw - this.w)
+			this.offset.x = (this.vw - this.w);
+	}
+
+	if(this.key.keymap[Keys.RIGHT])	{
+		this.offset.x += 5;
+		if(this.offset.x > 0)
+			this.offset.x = 0;
+	}
 }
 
 /***********************************************************************
  * Mouse
  **********************************************************************/
 
-Planets.Mouse = function(game) {
+Planets.Mouse = function(game, viewport) {
 	this.game = game; 
+	this.viewport = viewport;
 
-
-	game.canvas.onmousemove = this.handler.bind(this);
-	game.jq_canvas.mousewheel(this.wheelHandler.bind(this));
-	game.jq_canvas.bind('mousedown', this.downHandler.bind(this));
-	game.jq_canvas.bind('mouseup', this.upHandler.bind(this));
+	viewport.canvas.onmousemove = this.handler.bind(this);
+	viewport.jq_canvas.mousewheel(this.wheelHandler.bind(this));
+	viewport.jq_canvas.bind('mousedown', this.downHandler.bind(this));
+	viewport.jq_canvas.bind('mouseup', this.upHandler.bind(this));
 
 	this.position = {x: 0, y: 0};
 	this.delta = 0;
-	this.left = game.jq_canvas.offset().left;
-	this.top  = game.jq_canvas.offset().top;
+	this.left = viewport.jq_canvas.offset().left;
+	this.top  = viewport.jq_canvas.offset().top;
 	this.currentDown = null;
 }
 
 Planets.Mouse.prototype.handler = function(event) {
-	this.position.x = event.pageX - this.left - this.game.offset.x;
-	this.position.y = event.pageY - this.top - this.game.offset.y;
+	this.position.x = event.pageX - this.left - this.viewport.offset.x;
+	this.position.y = event.pageY - this.top - this.viewport.offset.y;
 }
 
 Planets.Mouse.prototype.wheelHandler = function(event, delta) {
@@ -228,26 +280,22 @@ Planets.Mouse.prototype.upHandler = function(event) {
  **********************************************************************/
 
 Planets.Keymap = function() { 
-	this.keymap = [];
-	window.onkeypress = this.handler.bind(this);
+	this.keymap = new Array(128);
+	for(var i = 0; i < 128; i++)
+		this.keymap[i] = false;
+
+	window.onkeydown = this.handlerDown.bind(this);
+	window.onkeyup = this.handlerUp.bind(this);
 }
 
-Planets.Keymap.prototype.handler = function(event) {
-	if(this.keymap[event.keyCode])
-		this.keymap[event.keyCode](event);
+Planets.Keymap.prototype.handlerDown = function(event) {
+	event.preventDefault();
+	this.keymap[event.keyCode] = true;
 }
 
-Planets.Keymap.prototype.attach = function(keyCode, callback) {
-	this.keymap[keyCode] = callback;
-}
-
-Planets.Keymap.prototype.remove = function(callback) {
-	for(var i = 0; i < this.keymap.length; i++) {
-		if(this.keymap[i] == callback) {
-			delete this.keymap[i];
-			return;
-		}
-	}
+Planets.Keymap.prototype.handlerUp = function(event) {
+	event.preventDefault();
+	this.keymap[event.keyCode] = false;
 }
 
 /***********************************************************************
@@ -262,8 +310,8 @@ Planets.Renderable.prototype.renderIndex = 0;
 
 Planets.Renderable.prototype.init = function() { }
 Planets.Renderable.prototype.load = function() { }
-Planets.Renderable.prototype.update = function(game, gameTime, deltaTime) { }
-Planets.Renderable.prototype.render = function(game, context) { }
+Planets.Renderable.prototype.update = function(game, viewport, gameTime, deltaTime) { }
+Planets.Renderable.prototype.render = function(game, viewport, context) { }
 Planets.Renderable.prototype.destroy = function() { }
 
 /***********************************************************************
@@ -327,7 +375,7 @@ Planets.Renderable.Planet.prototype.moveSelectedShips = function(target) {
 	}
 }
 
-Planets.Renderable.Planet.prototype.update = function(game, deltaTime, gameTime) {
+Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime, gameTime) {
 	var pos = game.mouse.position;
 	if( pos.x >= this.position.x - this.radius &&
 		pos.x <= this.position.x + this.radius &&
@@ -351,8 +399,8 @@ Planets.Renderable.Planet.prototype.update = function(game, deltaTime, gameTime)
 	}
 }
 
-Planets.Renderable.Planet.prototype.render = function(game, context) {
-	var x = this.position.x + game.offset.x, y = this.position.y + game.offset.y, r = this.radius;
+Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
+	var x = this.position.x + viewport.offset.x, y = this.position.y + viewport.offset.y, r = this.radius;
 	//outer gradient
 	// x0	The x-coordinate of the starting circle of the gradient
 	// y0	The y-coordinate of the starting circle of the gradient
@@ -411,7 +459,7 @@ Planets.Renderable.Planet.prototype.render = function(game, context) {
 			var tmp = this.connections[i].position;
 			var tmpr = this.connections[i].radius;
 
-			var x2 = tmp.x + game.offset.x, y2 = tmp.y + game.offset.y;
+			var x2 = tmp.x + viewport.offset.x, y2 = tmp.y + viewport.offset.y;
 
 			var a = angulate(this.position, tmp);
 			var b = angulate(tmp, this.position);
@@ -470,7 +518,7 @@ Planets.Renderable.Ship.prototype.init = function() {
 	return this;
 }
 
-Planets.Renderable.Ship.prototype.update = function(game, deltaTime, gameTime) {
+Planets.Renderable.Ship.prototype.update = function(game, viewport, deltaTime, gameTime) {
 	if(this.currentMoveTarget == null && this.moveQ.length > 0) 
 		this.currentMoveTarget = this.moveQ.shift();
 
@@ -519,8 +567,8 @@ Planets.Renderable.Ship.prototype.moveTo = function(planet) {
 	this.moveQ.push(planet);
 }
 
-Planets.Renderable.Ship.prototype.render = function(game, context) {
- 	var x = game.offset.x + this.position.x, y = game.offset.y + this.position.y;
+Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
+ 	var x = viewport.offset.x + this.position.x, y = viewport.offset.y + this.position.y;
 
 
  	context.beginPath();    
