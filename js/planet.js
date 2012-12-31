@@ -99,6 +99,8 @@ Planets.Main = function(w, h) {
 }
 
 Planets.Main.prototype.init = function() {
+	//create lookup table for sin/cos angles
+	//default is 1024 steps (1°=360/1024)
 	Planets.lookup = {sin: [], cos: []};
 	var ang;
 	for(var i = 0; i < 1024; i++) {
@@ -145,6 +147,7 @@ Planets.Main.prototype.loop = function() {
 	var gameTime  = this.lastUpdate - this.firstUpdate;
 
 	this.viewport.handleKeydown();
+	this.viewport.handleMouse(this.mouse);
 	this.viewport.clear();
 
 	var i=0, l=this.renderList.length;
@@ -168,8 +171,8 @@ Planets.Viewport = function(keyboard, game, w, h) {
 	this.key = keyboard;
 	this.game = game;
 
-	this.w = w;
-	this.h = h;
+	this.w = w;						//logical width
+	this.h = h;						//logical height
 
 	this.vw = $(window).width();	//viewport height
 	this.vh = $(window).height();	//viewport width
@@ -185,6 +188,9 @@ Planets.Viewport = function(keyboard, game, w, h) {
 	this.context = this.canvas.getContext('2d');
 
 	this.offset = {x: 0, y: 0};
+
+	this.moveSpeed = 5;		// Screen movement speed
+	this.moveCorner = 20;	// Hot corner size
 }
 
 Planets.Viewport.prototype.clear = function() {
@@ -192,36 +198,62 @@ Planets.Viewport.prototype.clear = function() {
 }
 
 Planets.Viewport.prototype.circleVisible = function(x, y, r) {
-	return (
-				true;
-		);
+	return true;
 }
 
 Planets.Viewport.prototype.rectVisible = function(x1, y1, x2, y2) {
 	return true;
 }
 
+// Handle viewport offset when mouse is in hot corners
+Planets.Viewport.prototype.handleMouse = function(mouse) {
+	if(mouse.position.y + this.offset.y < this.moveCorner) 	{
+		this.offset.y -= this.moveSpeed;
+		if(this.offset.y < this.vh - this.h) 
+			this.offset.y = (this.vh - this.h);
+	}
+
+	if(mouse.position.y + this.offset.y > this.vh - this.moveCorner) {
+		this.offset.y += this.moveSpeed;
+		if(this.offset.y > 0)
+			this.offset.y = 0;
+	}
+
+	if(mouse.position.x + this.offset.x < this.moveCorner) {
+		this.offset.x -= this.moveSpeed;
+		if(this.offset.x < this.vw - this.w)
+			this.offset.x = (this.vw - this.w);
+	}
+
+	if(mouse.position.x + this.offset.x > this.vw - this.moveCorner) {
+		this.offset.x += this.moveSpeed;
+		if(this.offset.x > 0)
+			this.offset.x = 0;
+	}
+}
+
+// Handle viewport offset when arrow-keys are pressed
 Planets.Viewport.prototype.handleKeydown = function() {
 	if(this.key.keymap[Keys.UP]) 	{
-		this.offset.y -= 5;
+		this.offset.y -= this.moveSpeed;
 		if(this.offset.y < this.vh - this.h) 
 			this.offset.y = (this.vh - this.h);
 	}
 
 	if(this.key.keymap[Keys.DOWN]) {
-		this.offset.y += 5;
+		this.offset.y += this.moveSpeed;
 		if(this.offset.y > 0)
 			this.offset.y = 0;
 	}
 
 	if(this.key.keymap[Keys.LEFT])	{
-		this.offset.x -= 5;
+		this.offset.x -= this.moveSpeed;
 		if(this.offset.x < this.vw - this.w)
 			this.offset.x = (this.vw - this.w);
 	}
 
 	if(this.key.keymap[Keys.RIGHT])	{
-		this.offset.x += 5;
+		this.offset.x += this.moveSpeed;
 		if(this.offset.x > 0)
 			this.offset.x = 0;
 	}
