@@ -174,7 +174,7 @@ Planets.Main = function(w, h) {
 
 
 	this.interval;
-	this.lastUpdate = this.firstUpdate = (new Date()).getTime();
+	this.lastUpdate = this.firstUpdate = Date.now();
 
 
 	this.selected = null;
@@ -246,6 +246,7 @@ Planets.Main.prototype.loop = function() {
 	this.viewport.handleInput(this.mouse);
 	this.viewport.clear();
 
+
 	var i=0, l=this.renderList.length, bgl = this.bgRenderList.length;
 
 	//always update foreground
@@ -314,9 +315,22 @@ Planets.Viewport = function(keyboard, game, w, h) {
 }
 
 Planets.Viewport.prototype.clear = function() {
-	this.context.clearRect(0, 0, this.vw, this.vh);
-	if(this.bgUpdated)
+	if(this.bgUpdated) {
+		//if the background has been updated, clear the
+		//transformations, clear the canvas and apply
+		//the new offsets
+		this.context.setTransform(1, 0, 0, 1, 0, 0);
+		this.context.clearRect(0, 0, this.vw, this.vh);
+		this.context.translate(this.offset.x, this.offset.y);
+
+		this.bgcontext.setTransform(1, 0, 0, 1, 0, 0);
 		this.bgcontext.clearRect(0, 0, this.vw, this.vh);
+		this.bgcontext.translate(this.offset.x, this.offset.y);
+	} else {
+		//nothing has changed - clear the foreground canvas (with regards to
+		//the translated offsets)
+		this.context.clearRect(0, 0, this.vw - this.offset.x, this.vh - this.offset.y);
+	}
 }
 
 Planets.Viewport.prototype.circleVisible = function(x, y, r) {
@@ -335,64 +349,51 @@ Planets.Viewport.prototype.handleInput = function(mouse) {
 
 // Handle viewport offset when mouse is in hot corners
 Planets.Viewport.prototype.handleMouse = function(mouse) {
-	if(mouse.position.y + this.offset.y < this.moveCorner) 	{
-		this.offset.y += this.moveSpeed;
-		this.bgUpdated = true;
-		if(this.offset.y > 0)
-			this.offset.y = 0;
-	}
-
-	if(mouse.position.y + this.offset.y > this.vh - this.moveCorner) {
-		this.offset.y -= this.moveSpeed;
-		this.bgUpdated = true;
-		if(this.offset.y < this.vh - this.h) 
-			this.offset.y = (this.vh - this.h);
-	}
-
-	if(mouse.position.x + this.offset.x < this.moveCorner) {
-		this.offset.x += this.moveSpeed;
-		this.bgUpdated = true;
-		if(this.offset.x > 0)
-			this.offset.x = 0;
-	}
-
-	if(mouse.position.x + this.offset.x > this.vw - this.moveCorner) {
-		this.offset.x -= this.moveSpeed;
-		this.bgUpdated = true;
-		if(this.offset.x < this.vw - this.w)
-			this.offset.x = (this.vw - this.w);
-	}
+	if(mouse.position.y + this.offset.y < this.moveCorner) 	
+		this.moveUp();
+	if(mouse.position.y + this.offset.y > this.vh - this.moveCorner) 
+		this.moveDown();
+	if(mouse.position.x + this.offset.x < this.moveCorner) 
+		this.moveLeft();
+	if(mouse.position.x + this.offset.x > this.vw - this.moveCorner) 
+		this.moveRight();
 }
 
 // Handle viewport offset when arrow-keys are pressed
 Planets.Viewport.prototype.handleKeydown = function() {
-	if(this.key.keymap[Keys.UP]) 	{
+	if(this.key.keymap[Keys.UP]) 	this.moveUp();
+	if(this.key.keymap[Keys.DOWN]) 	this.moveDown();
+	if(this.key.keymap[Keys.LEFT])	this.moveLeft();
+	if(this.key.keymap[Keys.RIGHT])	this.moveRight();
+}
+
+// Viewport movement methods
+Planets.Viewport.prototype.moveUp = function() {
 		this.bgUpdated = true;
 		this.offset.y -= this.moveSpeed;
 		if(this.offset.y < this.vh - this.h) 
 			this.offset.y = (this.vh - this.h);
-	}
+}
 
-	if(this.key.keymap[Keys.DOWN]) {
+Planets.Viewport.prototype.moveDown = function() {
 		this.bgUpdated = true;
 		this.offset.y += this.moveSpeed;
 		if(this.offset.y > 0)
 			this.offset.y = 0;
-	}
+}
 
-	if(this.key.keymap[Keys.LEFT])	{
+Planets.Viewport.prototype.moveLeft = function() {
 		this.bgUpdated = true;
 		this.offset.x += this.moveSpeed;
 		if(this.offset.x > 0)
 			this.offset.x = 0;
-	}
+}
 
-	if(this.key.keymap[Keys.RIGHT])	{
+Planets.Viewport.prototype.moveRight = function() {
 		this.bgUpdated = true;
 		this.offset.x -= this.moveSpeed;
 		if(this.offset.x < this.vw - this.w)
 			this.offset.x = (this.vw - this.w);
-	}
 }
 
 /***********************************************************************
@@ -472,7 +473,6 @@ Planets.Keymap.prototype.handlerUp = function(event) {
 
 Planets.Renderable = function() { }
 
-Planets.Renderable.prototype.scale = 1.0;
 Planets.Renderable.prototype.position = {x: 0, y: 0}
 Planets.Renderable.prototype.renderIndex = 0;
 
@@ -595,7 +595,7 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 }
 
 Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
-	var x = this.position.x + viewport.offset.x, y = this.position.y + viewport.offset.y, r = this.radius;
+	var x = this.position.x, y = this.position.y, r = this.radius;
 
 
 	// Draw connections
@@ -639,7 +639,8 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 }
 
 Planets.Renderable.Planet.prototype.renderPath = function(context, viewport, x, y, r, tpos, trad) {
-	var x2 = tpos.x + viewport.offset.x, y2 = tpos.y + viewport.offset.y;
+	// var x2 = tpos.x + viewport.offset.x, y2 = tpos.y + viewport.offset.y;
+	var x2 = tpos.x, y2 = tpos.y;
 
 	var a = angulate(this.position, tpos);
 	var b = angulate(tpos, this.position);
@@ -657,16 +658,15 @@ Planets.Renderable.Planet.prototype.renderPath = function(context, viewport, x, 
 }
 
 Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context) {
-	var x = this.position.x + viewport.offset.x, y = this.position.y + viewport.offset.y, r = this.radius;
+	var x = this.position.x, y = this.position.y, r = this.radius;
+
 	var grdInner = context.createRadialGradient(x, y, 5, x, y, r);
-	grdInner.addColorStop(0,"rgba(253,253,199, 0.5)");
+	grdInner.addColorStop(0,"rgba(253,253,199, 1)");
 	grdInner.addColorStop(1,this.color);
 	//inner gradient
 	var grdOuter = context.createRadialGradient(x, y, r, x, y, r*2);
 	grdOuter.addColorStop(0, "rgba(211,158,114,0.3)");
 	grdOuter.addColorStop(1, "rgba(211,158,114,0.0)");
-
-	//glow
 
 	//glow
 	context.beginPath();
@@ -682,7 +682,6 @@ Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context)
 
 	//circle
 	context.beginPath();
-	context.scale(this.scale, this.scale);
 	context.lineStyle = "#000000";
 	context.lineWidth = 4;
 	context.fillStyle = grdInner;
@@ -779,12 +778,13 @@ Planets.Renderable.Ship.prototype.moveTo = function(planet) {
 }
 
 Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
- 	var x = viewport.offset.x + this.position.x, y = viewport.offset.y + this.position.y;
+ 	var x = this.position.x, y = this.position.y;
 
 
  	context.beginPath();    
  	context.fillStyle = '#000000';
 
+ 	context.save();
  	context.translate(x, y);
  	x = y = 0;
     context.rotate( ((PID1024) * this.angle) + (PID4) );
@@ -804,8 +804,7 @@ Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
 		context.fill();
 	}
 
-	context.setTransform(1, 0, 0, 1, 0, 0);
-
+	context.restore();
 
 }
 

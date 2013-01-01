@@ -9,76 +9,14 @@
 	<script type="application/javascript">
 		$(document).ready(function () {
 			console.log("Initializing");
+
+			var bgx = $(window).width();
+			var bgy = $(window).height();
+			$('body').css('background-size', bgx + "px " + bgy + "px");
+
 			var m = new Planets.Main(1500, 1200);
 				m.init();
-
-
-			// var p1, p2, p3;
-			// m.push(p1 = new Planets.Renderable.Planet({x: 200, y: 200}, 40));
-			// m.bgPush(p1);
-			// m.push(p2 = new Planets.Renderable.Planet({x: 700, y: 320}, 80));
-			// m.bgPush(p2);
-			// m.push(p3 = new Planets.Renderable.Planet({x: 400, y: 500}, 40));
-			// m.bgPush(p3);
-			// m.push(p3 = new Planets.Renderable.Planet({x: 100, y: 500}, 40));
-			// m.bgPush(p3);
-
-			// p1.connect(p3);
-			// p3.connect(p1);
-
-			// p3.connect(p2);
-			// p2.connect(p3);
-
-			// var path = null;
-			// console.log(path = Planets.Path(p1, p2));
-			// if(path)
-			// 	Planets.Path.show(path);
-
-			// p1.connect(p2);
-			// p1.connect(p3);
-
-			// p2.connect(p1);
-			// p2.connect(p3);
-
-			// p3.connect(p1);
-			// p3.connect(p2);
-
-
-			// var s1, s2, s3;
-
-			// s3 = p1.spawnShip(m);
-			// p1.spawnShip(m);
-
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// p2.spawnShip(m);
-			// // m.push(s1 = new Planets.Renderable.Ship(p1).init());
-			// // m.push(s2 = new Planets.Renderable.Ship(p1).init());
-			// // m.push(s3 = new Planets.Renderable.Ship(p2).init());
-			// // m.push(s3 = new Planets.Renderable.Ship(p2).init());
-			// // m.push(s3 = new Planets.Renderable.Ship(p2).init());
-			// // m.push(s3 = new Planets.Renderable.Ship(p2).init());
-
-			// // s3.moveTo(p3);
-			// // s3.moveTo(p2);
-			// // s3.moveTo(p1);
-
-			// s3.moveTo(p3);
-			// s3.moveTo(p2);
-			// s3.moveTo(p1);
-			// s3.moveTo(p3);
-			// s3.moveTo(p2);
-			// s3.moveTo(p1);
-
-			m.start();
+				m.start();
 		});
 	</script>
 
@@ -87,6 +25,7 @@
 
 		body {
 			background-color: rgb(122,114,103);
+			background-image: url(backgrounds/1.jpg);
 			text-align: center;
 		}
 
