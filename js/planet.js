@@ -81,6 +81,7 @@ Planets.Build = function(game, viewport) {
 }
 
 Planets.GeneratePlanetName = function() {
+	//http://de.wikipedia.org/wiki/Liste_von_Sternennamen	:-)
 	var prefix = ["Alpha", "Beta", "Zeta", "Epsilon", "Pi", "Mon", "Mir", "Psi", "Rho", "Omikron",
 				  "Sigma", "Xi", "Cor"];
 	var posfix = ["Majoris", "Minoris", "Indi", "Gamma", "Cephei", "A", "B", "C", "Ceti", "Delta",
