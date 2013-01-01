@@ -11,7 +11,7 @@ var distance  = function(position1, position2) {
 }
 
 var angulate = function(position1, position2) {
-	var a = Math.atan2(-(position2.y-position1.y), (position2.x-position1.x)) * (512/Math.PI);
+	var a = Math.atan2(-(position2.y-position1.y), (position2.x-position1.x)) * (1024/PI2);
 	return 1024 - ((a < 0)? a + 1024 : a);
 }
 
@@ -85,9 +85,15 @@ Planets.Build = function(game, viewport) {
  **********************************************************************/
 
 Planets.Path = function(start, destination) {
+	// a custom hash function to access objects faster. This works because planets
+	// are not supposed to be in the exact same location.
 	var hash = function(node) { return node.position.x + "" + node.position.y; }
+	// the heueristic uses simple distance. Maybe this could be replaced by s.t.
+	// faster like manhattan distance.
 	var heur = function(node1, node2) { return distance(node1.position, node2.position); }
-	var count = function(list) { var counter=0; for(var x in list) counter++; return counter; }
+	// helper function to check if a hash-map is empty.
+	var empty = function(list) { for(var x in list) return false; return true; }
+
 
 	var f_score = {};
 	var g_score = {};
@@ -113,7 +119,7 @@ Planets.Path = function(start, destination) {
 	f_score[hash(start)] = heur(start, destination);
 	var neighbour, t_score, hn, hc;
 
-	while(count(open) != 0) {
+	while(!empty(open)) {
 		current = lowf();
 		if(current == destination) { path.push(current); return path; }
 
@@ -122,7 +128,7 @@ Planets.Path = function(start, destination) {
 		close[hc] = current;
 
 		for(var i = 0; i < current.connections.length; i++) {
-			neighbour = current.connections[i].planet;
+			neighbour = current.connections[i];
 			hn = hash(neighbour);
 			if(hn in close) continue; 
 
@@ -186,13 +192,13 @@ Planets.Main.prototype.init = function() {
 	Planets.lookup = {sin: [], cos: []};
 	var ang;
 	for(var i = 0; i < 1024; i++) {
-		ang = 2 * Math.PI * i / 1024;
+		ang = PI2 * i / 1024;
 		Planets.lookup.cos[i] = Math.cos(ang);
 		Planets.lookup.sin[i] = Math.sin(ang);
 	}
 
+	this.viewport = new Planets.Viewport(this, this.w, this.h);
 	this.key = new Planets.Keymap();
-	this.viewport = new Planets.Viewport(this.key, this, this.w, this.h);
 	this.mouse = new Planets.Mouse(this, this.viewport);
 
 	Planets.Build(this, this.viewport);
@@ -243,7 +249,7 @@ Planets.Main.prototype.loop = function() {
 	this.lastUpdate = Date.now();
 	var gameTime  = this.lastUpdate - this.firstUpdate;
 
-	this.viewport.handleInput(this.mouse);
+	this.viewport.handleInput(this.mouse, this.key);
 	this.viewport.clear();
 
 
@@ -276,8 +282,7 @@ Planets.Main.prototype.loop = function() {
  * Viewport
  **********************************************************************/
 
-Planets.Viewport = function(keyboard, game, w, h) {
-	this.key = keyboard;
+Planets.Viewport = function(game, w, h) {
 	this.game = game;
 
 	this.w = w;						//logical width
@@ -308,8 +313,8 @@ Planets.Viewport = function(keyboard, game, w, h) {
 
 	this.offset = {x: 0, y: 0};
 
-	this.moveSpeed = 5;		// Screen movement speed
-	this.moveCorner = 20;	// Hot corner size
+	this.moveSpeed = 4;		// Screen movement speed
+	this.moveCorner = 30;	// Hot corner size
 
 	this.bgUpdated = false;
 }
@@ -341,30 +346,30 @@ Planets.Viewport.prototype.rectVisible = function(x1, y1, x2, y2) {
 	return true;
 }
 
-Planets.Viewport.prototype.handleInput = function(mouse) {
+Planets.Viewport.prototype.handleInput = function(mouse, keyboard) {
 	this.bgUpdated = false;
 	this.handleMouse(mouse);
-	this.handleKeydown();
+	this.handleKeydown(keyboard);
 }
 
 // Handle viewport offset when mouse is in hot corners
 Planets.Viewport.prototype.handleMouse = function(mouse) {
-	if(mouse.position.y + this.offset.y < this.moveCorner) 	
-		this.moveUp();
-	if(mouse.position.y + this.offset.y > this.vh - this.moveCorner) 
+	if(mouse.absolute.y < this.moveCorner) 	
 		this.moveDown();
-	if(mouse.position.x + this.offset.x < this.moveCorner) 
+	if(mouse.absolute.y > this.vh - this.moveCorner) 
+		this.moveUp();
+	if(mouse.absolute.x < this.moveCorner) 
 		this.moveLeft();
-	if(mouse.position.x + this.offset.x > this.vw - this.moveCorner) 
+	if(mouse.absolute.x > this.vw - this.moveCorner) 
 		this.moveRight();
 }
 
 // Handle viewport offset when arrow-keys are pressed
-Planets.Viewport.prototype.handleKeydown = function() {
-	if(this.key.keymap[Keys.UP]) 	this.moveUp();
-	if(this.key.keymap[Keys.DOWN]) 	this.moveDown();
-	if(this.key.keymap[Keys.LEFT])	this.moveLeft();
-	if(this.key.keymap[Keys.RIGHT])	this.moveRight();
+Planets.Viewport.prototype.handleKeydown = function(keyboard) {
+	if(keyboard.keymap[Keys.UP]) 	this.moveUp();
+	if(keyboard.keymap[Keys.DOWN]) 	this.moveDown();
+	if(keyboard.keymap[Keys.LEFT])	this.moveLeft();
+	if(keyboard.keymap[Keys.RIGHT])	this.moveRight();
 }
 
 // Viewport movement methods
@@ -409,7 +414,12 @@ Planets.Mouse = function(game, viewport) {
 	viewport.jq_canvas.bind('mousedown', this.downHandler.bind(this));
 	viewport.jq_canvas.bind('mouseup', this.upHandler.bind(this));
 
+	//position including offset calculation
 	this.position = {x: 0, y: 0};
+	//absolute position (for fixed gui elements)
+	this.absolute = {x: 0, y: 0};
+
+
 	this.delta = 0;
 	this.left = viewport.jq_canvas.offset().left;
 	this.top  = viewport.jq_canvas.offset().top;
@@ -418,8 +428,10 @@ Planets.Mouse = function(game, viewport) {
 }
 
 Planets.Mouse.prototype.handler = function(event) {
-	this.position.x = event.pageX - this.left - this.viewport.offset.x;
-	this.position.y = event.pageY - this.top - this.viewport.offset.y;
+	this.absolute.x = event.pageX - this.left;
+	this.absolute.y = event.pageY - this.top;
+	this.position.x = this.absolute.x - this.viewport.offset.x;
+	this.position.y = this.absolute.y - this.viewport.offset.y;
 }
 
 Planets.Mouse.prototype.wheelHandler = function(event, delta) {
@@ -494,10 +506,16 @@ Planets.Renderable.Planet = function(position, radius) {
 	this.color = Planets.Renderable.Planet.colors[(Math.random() * Planets.Renderable.Planet.colors.length) | 0];
 	this.connections = [];
 	this.mouseOver = false;
+
+	//Properties for handling orbitting ships
 	this.ships = [];
 	this.shipCount = 0;
 	this.shipSelected = 0;
+
+	//Some object indices
 	this.renderIndex = this.bgRenderIndex = 0;
+
+	//Properties of path preview
 	this.showPath = null;		// if planet than show path to the planet
 	this.pathList = null;		// if list show path list
 }
@@ -506,10 +524,7 @@ Planets.Renderable.Planet.prototype = new Planets.Renderable();
 Planets.Renderable.Planet.prototype.constructor = Planets.Renderable.Planet;
 
 Planets.Renderable.Planet.prototype.connect = function(planet) {
-	this.connections.push({
-		planet : planet,
-		weight : distance(this, planet)
-	});
+	this.connections.push(planet);
 }
 
 Planets.Renderable.Planet.prototype.spawnShip = function(game) {
@@ -604,15 +619,8 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 		context.lineWidth = 1;
 		context.lineStyle = "rgba(0, 0, 0, 0.2)";
 
-		for(var i = 0; i < this.connections.length; i++) {
-			//TO BE OPTIMIZED :-)
-			var tmp = this.connections[i].planet.position;
-			var tmpr = this.connections[i].planet.radius;
-			this.renderPath(context, viewport, x, y, r, 
-				this.connections[i].planet.position, 
-				this.connections[i].planet.radius);
-
-		} 
+		for(var i = 0; i < this.connections.length; i++)
+			this.renderPath(context, this.connections[i]);
 
 		context.stroke();
 
@@ -621,9 +629,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 		context.beginPath();
 		context.lineWidth = 1;
 		context.lineStyle = "rgba(255, 0, 0, 1)";
-		this.renderPath(context, viewport, x, y, r, 
-			this.showPath.position, 
-			this.showPath.radius);
+		this.renderPath(context, this.showPath);
 		context.stroke();
 	}
 
@@ -638,23 +644,16 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 
 }
 
-Planets.Renderable.Planet.prototype.renderPath = function(context, viewport, x, y, r, tpos, trad) {
-	// var x2 = tpos.x + viewport.offset.x, y2 = tpos.y + viewport.offset.y;
-	var x2 = tpos.x, y2 = tpos.y;
+Planets.Renderable.Planet.prototype.renderPath = function(context, target) {
+	var a = angulate(this.position, target.position) | 0;
+	var b = (a + 512); if(b > 1024) b -= 1024;
 
-	var a = angulate(this.position, tpos);
-	var b = angulate(tpos, this.position);
-
-	var xe = x2 + trad * Planets.lookup.cos[b | 0];
-	var ye = y2 + trad * Planets.lookup.sin[b | 0];
-
-
-	var xa = x + r * Planets.lookup.cos[a | 0];
-	var ya = y + r * Planets.lookup.sin[a | 0];
-
-
-	context.moveTo(xa, ya);
-	context.lineTo(xe, ye);
+	context.moveTo(
+		this.position.x + this.radius * Planets.lookup.cos[a],
+		this.position.y + this.radius * Planets.lookup.sin[a]);
+	context.lineTo(
+		target.position.x + target.radius * Planets.lookup.cos[b], 
+		target.position.y + target.radius * Planets.lookup.sin[b]);
 }
 
 Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context) {
@@ -664,34 +663,22 @@ Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context)
 	grdInner.addColorStop(0,"rgba(253,253,199, 1)");
 	grdInner.addColorStop(1,this.color);
 	//inner gradient
-	var grdOuter = context.createRadialGradient(x, y, r, x, y, r*2);
+	var grdOuter = context.createRadialGradient(x, y, r, x, y, r << 1);
 	grdOuter.addColorStop(0, "rgba(211,158,114,0.3)");
 	grdOuter.addColorStop(1, "rgba(211,158,114,0.0)");
 
 	//glow
 	context.beginPath();
 	context.fillStyle = grdOuter;
-	context.arc(
-			x,
-			y,
-			r*2,
-			0,
-			PI2
-		);
+	context.arc(x, y, r << 1, 0, PI2);
 	context.fill();
 
-	//circle
+	//circle & inner
 	context.beginPath();
 	context.lineStyle = "#000000";
 	context.lineWidth = 4;
 	context.fillStyle = grdInner;
-	context.arc(
-			x,
-			y,
-			r,
-			0,
-			PI2
-		);
+	context.arc(x, y, r, 0, PI2);
 	context.stroke();
 	context.fill();
 }
@@ -711,21 +698,24 @@ Planets.Renderable.Ship = function(planet) {
 	//speed decrease with lower health points 
 	this.speed = this.speed + ((Math.random() * 30) | 0);
 }
+
 Planets.Renderable.Ship.prototype = new Planets.Renderable();
 Planets.Renderable.Ship.prototype.constructor = Planets.Renderable.Ship;
 Planets.Renderable.Ship.prototype.orbit = null;
 Planets.Renderable.Ship.prototype.speed = 120;
 
 Planets.Renderable.Ship.prototype.init = function() {
+	//Angle between the ship and the planet
 	this.angle = (Math.random() * (1024)) | 0;
+	//Distance between the ship and the planet surface
 	this.offset = ((Math.random() * (30 - 10) ) + 10) | 0;
 
 	this.pIndex = 0; //index used in the planet's shiplist, not to be changed.
 	this.renderIndex = this.bgRenderIndex = 0; //used in the main loop, not to be changed.
 	this.attached = true;
 
-	this.currentMoveTarget = null;
-	this.moveQ = [];
+	this.currentMoveTarget = null;	//current target to move to
+	this.moveQ = [];				//task que
 
 	return this;
 }
@@ -778,33 +768,25 @@ Planets.Renderable.Ship.prototype.moveTo = function(planet) {
 }
 
 Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
- 	var x = this.position.x, y = this.position.y;
-
-
  	context.beginPath();    
  	context.fillStyle = '#000000';
 
  	context.save();
- 	context.translate(x, y);
- 	x = y = 0;
+ 	context.translate(this.position.x, this.position.y);
     context.rotate( ((PID1024) * this.angle) + (PID4) );
- 	context.moveTo(x, y);
- 	context.bezierCurveTo(x, y + 4, x + 4, y + 4, x+12, y);
- 	context.bezierCurveTo(x+4, y-4, x, y-4, x, y);
-
+ 	context.moveTo(0, 0);
+ 	context.bezierCurveTo(0, 4, 4, 4, 12, 0);
+ 	context.bezierCurveTo(4, -4, 0, -4, 0, 0);
 	context.fill();
 
  	//if not in orbit or moving to target, draw the "engine exhaust"
 	if(!this.orbit || this.currentMoveTarget) {
 		context.beginPath();
 		context.fillStyle = "rgba(255, 255, 255, 0.5)";
-		context.arc(
-				-2, 0, 2, 0, PI2
-			);
+		context.arc(-2, 0, 2, 0, PI2);
 		context.fill();
 	}
 
 	context.restore();
-
 }
 
