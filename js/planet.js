@@ -47,7 +47,7 @@ Planets.Build = function(game, viewport) {
 			rndx = ((x * avgGapX) - (rndGapX/2) + (Math.random() * rndGapX)) | 0;
 			rndy = ((y * avgGapY) - (rndGapY/2) + (Math.random() * rndGapY)) | 0;
 			rnds = (avgSize - (rndSize / 2) + (Math.random() * rndSize)) | 0;
-			o = new Planets.Renderable.Planet({x: rndx, y: rndy}, rnds);
+			o = new Planets.Renderable.Planet({x: rndx, y: rndy}, rnds, Planets.GeneratePlanetName());
 			game.push(o);
 			game.bgPush(o);
 
@@ -78,6 +78,22 @@ Planets.Build = function(game, viewport) {
 			o.spawnShip(game);
 		}
 	}
+}
+
+Planets.GeneratePlanetName = function() {
+	var prefix = ["Alpha", "Beta", "Zeta", "Epsilon", "Pi", "Mon", "Mir", "Psi", "Rho", "Omikron",
+				  "Sigma", "Xi", "Cor"];
+	var posfix = ["Majoris", "Minoris", "Indi", "Gamma", "Cephei", "A", "B", "C", "Ceti", "Delta",
+				  "Tauri", "Capricorni", "Lyrae"];
+	var pnames =   ["Mensae", "Pollux", "Ursae", "Leonis", "Virginis", "Draconis", "Kappa", "Coronae",
+					"Herculis", "Arae", "Pegasi", "Delphini", "Aquarii", "Orionis", "Arietis", "Librae",
+					"Beteigeuze", "Sol"];
+
+	var name = prefix[ (Math.random() * prefix.length) | 0] + " ";
+		name+= pnames[ (Math.random() * pnames.length) | 0] + " ";
+		name+= posfix[ (Math.random() * posfix.length) | 0] + " ";
+
+	return name;
 }
 
 /***********************************************************************
@@ -505,7 +521,8 @@ Planets.Renderable.prototype.destroy = function() { }
  * Planet
  **********************************************************************/
 
-Planets.Renderable.Planet = function(position, radius) {
+Planets.Renderable.Planet = function(position, radius, name) {
+	this.name = name;
 	this.position = position;
 	this.radius = radius;
 	this.color = Planets.Renderable.Planet.colors[(Math.random() * Planets.Renderable.Planet.colors.length) | 0];
@@ -611,6 +628,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 	if(this.mouseOver && this.connections.length >= 0 && !this.path) {
 		context.beginPath();
 		context.lineWidth = 1;
+		context.strokeStyle = "rgba(0, 0, 0, 0.3)";
 
 		for(var i = 0; i < this.connections.length; i++)
 			this.renderPath(context, this, this.connections[i]);
@@ -618,9 +636,9 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 		context.stroke();
 
 	} else if(this.path) {
-		//Draw single connection as path preview
 		context.lineWidth = 2;
 		context.beginPath();
+		context.strokeStyle = "rgba(0, 0, 0, 0.3)";
 
 		for(var i = 0; i < this.path.length - 1; i++)
 			this.renderPath(context, this.path[i], this.path[i+1]);
@@ -635,12 +653,52 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 
 Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 	var x = this.position.x, y = this.position.y, r = this.radius;
-	context.fillStyle = "#000000";
-	var dim = context.measureText("Fleet: 0");
-	context.fillText("Fleet: " + this.shipCount, x - (dim.width/2), y);
 
-	var dim = context.measureText("Selected: 0");
-	context.fillText("Selected: " + this.shipSelected, x -(dim.width/2), y + 10);
+
+	if(this.shipCount) {
+		context.beginPath();
+		context.lineWidth = 12;
+
+		// Selection dial background
+		context.strokeStyle = "rgba(253,253,199, 0.2)";
+		context.arc(x, y, r + 12, 0, PI2);
+		context.stroke();
+
+		// Selection dial foreground
+		if(this.shipSelected) {
+			context.beginPath();
+			context.strokeStyle = this.color;
+			context.globalAlpha = 0.5;
+			var a = (this.shipSelected / this.shipCount) * PI2;
+			context.arc(x, y, r + 12, 0, (this.shipSelected / this.shipCount) * PI2);
+			context.stroke();	
+			context.globalAlpha = 1;
+		}
+
+		// Draw text
+		context.beginPath();
+		context.fillStyle = "#ffffff";
+		context.strokeStyle = "#000000";
+		context.lineWidth = 1;
+		context.font = 'bold 16pt Verdana';
+		var str = this.shipSelected + "/" + this.shipCount;
+		var dim = context.measureText(str);
+		context.textBaseline = "middle";
+
+		context.fillText(str, x - (dim.width/2), y);
+		context.strokeText(str, x - (dim.width/2), y);
+	}
+
+	//Draw planet name
+	context.fillStyle = "#ffffff";
+	context.strokeStyle = "#000000";
+	context.lineWidth = 1;
+	context.font = 'bold 16pt Verdana';
+	var dim = context.measureText(this.name);
+	context.textBaseline = "bottom";
+
+	context.fillText(this.name, x - (dim.width/2), y - r - 16);
+	context.strokeText(this.name, x - (dim.width/2), y - r - 16);
 }
 
 Planets.Renderable.Planet.prototype.renderPath = function(context, origin, target) {
