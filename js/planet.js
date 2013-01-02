@@ -32,22 +32,22 @@ var planetSpawnMaxPresent = 12;
 
 var Fractions = [
 	{
-		color : "rgb(0, 255, 0)",
+		color : "rgb(15,183,209)",
 		name  : "Player",
 		planetCount : 0
 	},
 	{
-		color : "rgb(255, 0, 0)",
+		color : "rgb(255,128,154)",
 		name  : "Enemy",
 		planetCount : 0
 	},
 	{
-		color : "rgb(0, 0, 255)",
+		color : "rgb(204,166,109)",
 		name  : "Pirates",
 		planetCount : 0
 	},
 	{
-		color : "rgb(128, 128, 128)",
+		color : "rgb(255,255,255)",
 		name  : "Neutral",
 		planetCount : 0
 	}
@@ -209,6 +209,54 @@ Planets.Path = function(start, destination) {
 	}
 
 	return null;
+}
+
+/***********************************************************************
+ * Animation
+ **********************************************************************/
+
+Planets.Animation = function() { }
+
+Planets.Animation.Linear = function(a, b, circle, speed) {
+	this.a = a;
+	this.b = b;
+	this.direction = (b>a)? 1 : -1;
+	this.circle = circle,
+	this.speed = speed / 1000;
+	this.start = Date.now();
+	this.current = this.a;
+}
+
+Planets.Animation.Linear.prototype.isFinished = function() {
+	if(this.b>this.a) {
+		return (this.current>=this.b);
+	} else {
+		return (this.current<=this.b);
+	}
+}
+
+Planets.Animation.Linear.prototype.next = function() {
+	if(this.isFinished()) {
+		if(this.circle)
+			this.switch();
+		else
+			return this.b;
+	}
+
+	var tdelta = Date.now() - this.start;
+		tdelta = this.speed * this.direction * tdelta;
+		this.current = this.a + tdelta;
+	return this.current;
+}
+
+Planets.Animation.Linear.prototype.switch = function() {
+	var tmp = this.a;
+	this.a = this.b;
+	this.b = tmp;
+
+	this.direction = -this.direction;
+	this.start = Date.now();
+	this.current = this.a;
 }
 
 /***********************************************************************
@@ -575,6 +623,9 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	Fractions[this.owner].planetCount++;
 	this.spawnTimer = null;
 
+	//Animation
+	this.ownerAnimation = new Planets.Animation.Linear(0.2, 0.8, true, 1);
+
 	//Some object indices
 	this.renderIndex = this.bgRenderIndex = 0;
 
@@ -749,7 +800,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 	//Draw ownership
 	context.beginPath();
 	context.lineWidth = 4;
-	context.globalAlpha = 0.5;
+	context.globalAlpha = (this.ownerApplicant)? this.ownerAnimation.next() : 0.5;
 	context.strokeStyle = Fractions[this.owner].color;
 	context.arc(this.position.x, this.position.y, 10, 0, PI2);
 	context.stroke();
