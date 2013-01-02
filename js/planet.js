@@ -945,7 +945,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 		context.beginPath();
 		context.fillStyle = "#ffffff";
 		context.font = "10pt Verdana";
-		var str = "AIR: " + game.skynet.getRiskDebug(this);
+		var str = "AIR: " + game.skynet.getDebug(this);
 		context.fillText(str, this.position.x - (context.measureText(str).width / 2), this.position.y + 90);
 		context.fill();
 	}
@@ -1322,148 +1322,225 @@ Planets.Renderable.MissileCache.prototype.render = function(game, viewport, cont
  **********************************************************************/
 
 Planets.Skynet = function() {
-	this.me = Fraction.Enemy;
 	this.planets = {};
-	this.targets = {};
+	this.me = Fraction.Enemy;
 
-	this.coreRisk = 0.0;
-	this.borderRisk = 0.5;
-	this.playerFactor = 0.01;
-	this.assessDepth = 1;
+	this.hash = function(planet) { return "P" + planet.position.x + "." + planet.position.y; };
+
+	this.core = [];
+	this.border = [];
+
+	this.in_need = [];
+	this.free = [];
+
+	this.a_targets = {};
+	this.i_targets = {};
 }
 
-Planets.Skynet.prototype.hash = function(planet) {
-	return "P" + planet.position.x + "." + planet.position.y;
-}
-
-Planets.Skynet.prototype.addPlanet = function(planet) {
-	this.planets[this.hash(planet)] = {
-		risk : 0,
-		planet : planet,
-		ships : 0
-	};
+Planets.Skynet.prototype.const = {
+	targetRatio : 1.2,		//the targeted ratio ownShips<>enemyShips for border planets
+	emptyAmount : 2,		//the proposed enemy count for empty planets.
+	baseAmount : 3, 			//the amount of ships on non-border planets
+	maxTargets : 1,
+	targetFail : -10
 }
 
 Planets.Skynet.prototype.evaluate = function() {
-	for(var i in this.targets) {
-		if(this.targets[i].planet.owner == this.me) {
-			this.planets[i] = this.targets[i];
-			delete this.targets[i];
-		} 
+
+	this.updateLists();
+
+	this.redistributeCoreShips();
+
+	this.evaluateCurrentTargets();
+}
+
+Planets.Skynet.prototype.addPlanet = function(planet) {
+	this.planets[this.hash(planet)] = planet;
+}
+
+Planets.Skynet.prototype.updateLists = function() {
+	var p;
+	this.core = []; this.border = []; this.in_need = []; this.free = [];
+
+	//Splits planets in core and border planets.
+	for(var i in this.planets) {
+		p = this.planets[i];
+		if(p.owner != this.me) coninue;
+
+		if(this.isBorderPlanet(p))
+			this.border.push(p);
+		else
+			this.core.push(p);
 	}
 
-	for(var i in this.planets) {
-		if(this.planets[i].planet.owner != this.me) {
-			delete this.planets[i];
+	//search border planets in need of troops
+	var r;
+	for(var i = 0; i < this.border.length; i++) {
+		r = this.getRequiredShips(this.border[i]);
+		r+= (this.const.targetRatio - 1) * r;
+
+		if(r>0) {
+			//requires troops
+			this.in_need.push(this.border[i]);
+		} else {
+			//can spend troops
+			if(r < 0) {
+				this.free.push({
+					count : -r,
+					origin : this.border[i]
+				});
+			}
+		}
+	}
+}
+
+Planets.Skynet.prototype.redistributeCoreShips = function() {
+	var p, c;
+	for(var i = 0; i < this.core.length; i++) {
+		p = this.core[i];
+		c = p.shipCount[this.me] - this.const.baseAmount;
+		if(c <= 0) continue;
+
+		for(var x = 0; x < c; x++) {
+			p.shipSelected[this.me] = 1;
+			if(this.in_need.length > 0) {
+				//Send ships to those border planets who need them.
+				p.moveSelectedShips(this.in_need[(Math.random() * this.in_need.length) | 0], this.me);
+			} else {
+				//If no one needs them send ships to any border planets (to keep core for farming)
+				p.moveSelectedShips(this.border[(Math.random() * this.border.length) | 0], this.me);
+			}
+		}
+	}
+}
+
+Planets.Skynet.prototype.evaluateCurrentTargets = function() {
+	var counter = 0, tmp = null;
+	//Check if current targets are still valid targets...
+	for(var i in this.a_targets) {
+
+		if(this.a_targets[i].owner == this.me) {
+			this.planets[i] = this.a_targets[i];
+			delete this.a_targets[i];
 			continue;
 		}
-		this.planets[i].risk = this.assess(this.planets[i].planet);
-		this.planets[i].ships = this.planets[i].planet.shipCount[this.me];
-	}
 
-	this.redistribute();
-
-	//Do projects...
-	var t = null;
-	for(var i in this.targets) { t = this.targets[i]; break; }
-	if(t == null) {
-		t = this.getTarget();
-		if(t != null) {
-			this.targets[this.hash(t.planet)] = t;
+		tmp = this.scoreTarget(this.a_targets[i]);
+		if(tmp.score < this.const.targetFail) {
+			delete this.a_targets[i];
+			this.i_targets[i] = tmp.planet;
+		} else {
+			counter++;
 		}
 	}
 
-	if(t) {
-		var highRisk = this.getHighRisk();
-		for(var i in highRisk) {
-			if(highRisk[i].ships > 15) {
-				console.log("Sending ship to target", t.planet.name);
-				highRisk[i].planet.shipSelected[this.me] = 5;
-				highRisk[i].planet.moveSelectedShips(t.planet, this.me);
+	//check if there are still ships at inactive targets...
+	for(var i in this.i_targets) {
+		if(this.i_targets[i].shipCount[this.me] > 0) {
+			this.free.push({
+				count: this.i_targets[i].shipCount[this.me],
+				origin: this.i_targets[i]
+			});
+		}
+	}
+
+	//if there are free ships go and distribut them on targets...
+	var freeCount = 0;
+	for(var i = 0; i < this.free.length; i++)
+		freeCount += this.free[i].count;
+
+	if(freeCount == 0) return;
+
+	var send = 0;
+	for(var i in this.a_targets) {
+		tmp = this.scoreTarget(this.a_targets[i]);
+		send = Math.max(0, tmp.troops);
+		send = Math.min(freeCount, send);
+
+		for(var y = 0; y < this.free.length; y++) {
+			send -= this.free[y].count;
+			this.free[y].origin.shipSelected[this.me] = this.free[y].count;
+			this.free[y].origin.moveSelectedShips(this.a_targets[i], this.me);
+
+			freeCount -= this.free[y].count;
+			this.free[y] = null;
+
+			if(send <= 0) break;
+		}
+	}
+
+	//if there are still free ships, create a new target
+	if(freeCount > 0 && counter < this.const.maxTargets) {
+		var n = this.searchTarget();
+		if(n == null) return;
+		if(freeCount >= n.troops) {
+			this.a_targets[this.hash(n.planet)] = n.planet;
+			for(var z = 0; z < this.free.length; z++) {
+				if(this.free[z] == null) continue;
+
+				this.free[z].origin.shipSelected[this.me] = this.free[z].count;
+				this.free[z].origin.moveSelectedShips(n.planet, this.me);
 			}
 		}
 	}
 }
 
-Planets.Skynet.prototype.redistribute = function() {
-	var highRisk = this.getHighRisk();
+Planets.Skynet.prototype.searchTarget = function() {
+	var s = { score: -Infinity, troops : -Infinity, planet : null}, p = null, tmp = null, tmps = 0;
+	for(var i = 0; i < this.border.length; i++) {
+		for(var x = 0; x < this.border[i].connections.length; x++) {
+			tmp = this.border[i].connections[x];
+			if(tmp.owner == this.me || tmp in this.a_targets || tmp in this.i_targets) continue;
 
-	for(var i in this.planets) {
-		if(this.planets[i].risk < 0.5 && this.planets[i].ships > 6) {
-			var toDist = this.planets[i].ships - 6;
-			for(var x = 0; x < toDist; x++) {
-				this.planets[i].planet.shipSelected[this.me] = 1;
-				this.planets[i].planet.moveSelectedShips(highRisk[(Math.random() * highRisk.length) | 0].planet, this.me);
+			tmps = this.scoreTarget(tmp);
+			if(tmps.score > s.score) {
+				s = tmps;
+				p = tmp;
 			}
 		}
 	}
+
+	return (p==null)? null: s;
 }
 
-Planets.Skynet.prototype.getHighRisk = function() {
-
-	var highRisk = [];
-
-	for(var i in this.planets) {
-		if(this.planets[i].risk >= 0.5)
-			highRisk.push(this.planets[i]);
-	}
-
-	return highRisk;
-}
-
-Planets.Skynet.prototype.getRiskDebug = function(planet) {
-	if(this.hash(planet) in this.planets) {
-		return this.planets[this.hash(planet)].risk;
-	}
-
-	return 0;
-}
-
-Planets.Skynet.prototype.assess = function(planet, recDepth) {
-	var risk = 0;
-	var troops = 0;
+Planets.Skynet.prototype.scoreTarget = function(planet) {
+	var s = 0, t = 0, p = null;
+	t += planet.shipCount[Fraction.Player];
 	for(var i = 0; i < planet.connections.length; i++) {
-		if(planet.connections[i].owner != this.me) {
-			risk += 1 / planet.connections.length;
-			troops += planet.connections[i].shipCount[Fraction.Player];
-		}
+		if(planet.connections[i].owner == this.me) s += 1;
+		t += (planet.connections[i].shipCount[Fraction.Player]);
 	}
 
-	var myTroops = planet.shipCount[this.me];
-
-	if(troops > 0 && myTroops > 0) {
-		risk += troops / myTroops;
-	} else if(troops > 0) {
-		risk += troops / 1;
-	} 
-
-	return risk;
+	return {
+		score : s - t,	//general score
+		troops : t,  	//required troops
+		planet : planet
+	};
 }
 
-Planets.Skynet.prototype.getTarget = function() {
-	var target = null;
-	var risk = Infinity;
-	var tmp;
-	for(var i in this.planets) {
-		for(var x = 0; x < this.planets[i].planet.connections.length; x++) {
-			var p = this.planets[i].planet.connections[x];
-			if(p.owner == this.me || this.hash(p) in this.planets || this.hash(p) in this.targets) continue;
-			tmp = this.assess(p);
-			if(tmp < risk) {
-				risk = tmp;
-				target = p;
-			}
-		}
-	}
-
-	if(risk <= 0.8) {
-		console.log("returning target", target.name, risk)
-		return {
-			planet : target,
-			risk : risk,
-			ships : 0
-		};
-	}
-
-	return null;
+Planets.Skynet.prototype.isBorderPlanet = function(planet) {
+	for(var i = 0; i < planet.connections.length; i++)
+		if(planet.connections[i].owner != this.me) return true;
+	return false;
 }
+
+Planets.Skynet.prototype.getRequiredShips = function(planet) {
+	var mytroops = planet.shipCount[this.me];
+	var enemytroops = planet.shipCount[Fraction.Player];
+	for(var i = 0; i < planet.connections.length; i++) {
+		if(planet.connections[i].owner == this.me) continue;
+		enemytroops += Math.max(this.const.emptyAmount, planet.connections[i].shipCount[Fraction.Player]);
+	}
+
+	return (enemytroops - mytroops);
+}
+
+Planets.Skynet.prototype.getDebug = function(planet) {
+	if(this.core.indexOf(planet) != -1)
+		return "Core Planet";
+	if(this.border.indexOf(planet) != -1)
+		return "Border (" + this.getRequiredShips(planet) + ")" + ((this.in_need.indexOf(planet) == -1)? 'OK' : 'UP');
+
+	return "Unknown Area";
+}
+
