@@ -80,6 +80,8 @@ Planets.Build = function(game, viewport) {
 	var resY = (h / (avgGapY)) | 0;
 
 
+	var first, last;
+
 	var rndx, rndy, rnds, o, cache = new Array(resX);
 	for(var x = 1; x < resX; x++) {
 		cache[x] = new Array(resY);
@@ -90,6 +92,9 @@ Planets.Build = function(game, viewport) {
 			o = new Planets.Renderable.Planet({x: rndx, y: rndy}, rnds, Planets.GeneratePlanetName());
 			game.push(o);
 			game.bgPush(o);
+
+			if(x == 1 && y == 1) first = o;
+			if(x == resX-1 && y == resY-1) last = o;
 
 			cache[x][y] = o;
 			if(cache[x][y-1]) {
@@ -119,14 +124,34 @@ Planets.Build = function(game, viewport) {
 			// o.spawnShip(game, Fraction.Enemy);
 			// o.spawnShip(game, Fraction.Enemy);
 
-			var rndE = Math.round(Math.random() * 10) + 2;
-			var rndP = Math.round(Math.random() * 10) + 2;
 
-			for(var i = 0; i < rndE; i++)
-				o.spawnShip(game, Fraction.Enemy);
-			for(var i = 0; i < rndP; i++)
-				o.spawnShip(game, Fraction.Player);
 		}
+	}
+
+	if(first && last) {
+
+			first.owner = Fraction.Player;
+			Planets.Build.spawnRandom(game, Fraction.Player, first);
+			for(var i = 0; i < first.connections.length; i++) {
+				first.connections[i].owner = Fraction.Player;
+				Planets.Build.spawnRandom(game, Fraction.Player, first.connections[i]);
+			}
+
+			last.owner = Fraction.Enemy;
+			Planets.Build.spawnRandom(game, Fraction.Enemy, last);
+			game.skynet.addPlanet(last);
+			for(var i = 0; i < first.connections.length; i++) {
+				last.connections[i].owner = Fraction.Enemy;
+				Planets.Build.spawnRandom(game, Fraction.Enemy, last.connections[i]);
+				game.skynet.addPlanet(last.connections[i]);
+			}
+	}
+}
+
+Planets.Build.spawnRandom = function(game, fraction, planet) {
+	var rnd = Math.round(Math.random() * 10) + 2;
+	for(var i = 0; i < rnd; i++) {
+		planet.spawnShip(game, fraction)
 	}
 }
 
@@ -339,6 +364,8 @@ Planets.Main.prototype.init = function() {
 		Planets.lookup.sin[i] = Math.sin(ang);
 	}
 
+	this.skynet = new Planets.Skynet();
+
 	this.viewport = new Planets.Viewport(this, this.w, this.h);
 	this.key = new Planets.Keymap();
 	this.mouse = new Planets.Mouse(this, this.viewport);
@@ -350,7 +377,7 @@ Planets.Main.prototype.init = function() {
 }
 
 Planets.Main.prototype.start = function() {
-	this.interval = setInterval(this.loop.bind(this), 20);
+	this.interval = setInterval(this.loop.bind(this), 15);
 }
 
 Planets.Main.prototype.stop = function() {
@@ -402,6 +429,8 @@ Planets.Main.prototype.loop = function() {
 	}
 
 	var i=0, l=this.renderList.length, bgl = this.bgRenderList.length;
+
+	this.skynet.evaluate();
 
 	//always update foreground
 	for(i = 0; i < l; i++)
@@ -912,14 +941,25 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 		context.stroke();
 	}
 
+	if(debug) { //Print skynet prognosted risk.
+		context.beginPath();
+		context.fillStyle = "#ffffff";
+		context.font = "10pt Verdana";
+		var str = "AIR: " + game.skynet.getRiskDebug(this);
+		context.fillText(str, this.position.x - (context.measureText(str).width / 2), this.position.y + 90);
+		context.fill();
+	}
+
 	//Draw ownership
-	context.beginPath();
-	context.lineWidth = 4;
-	context.globalAlpha = (this.ownerApplicant)? this.ownerAnimation.next() : 0.8;
-	context.strokeStyle = Fractions[this.owner].color;
-	context.arc(this.position.x, this.position.y, this.radius - 2, 0, PI2);
-	context.stroke();
-	context.globalAlpha = 1.0;
+	if(this.owner != Fraction.Neutral) {
+		context.beginPath();
+		context.lineWidth = 4;
+		context.globalAlpha = (this.ownerApplicant)? this.ownerAnimation.next() : 0.8;
+		context.strokeStyle = Fractions[this.owner].color;
+		context.arc(this.position.x, this.position.y, this.radius - 2, 0, PI2);
+		context.stroke();
+		context.globalAlpha = 1.0;
+	}
 
 	//Draw UI
 	if(this.mouseOver)
@@ -1144,10 +1184,9 @@ Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
 
 	if(this.health < 0) return;
 
+ 	context.save();
  	context.beginPath();    
  	context.fillStyle = Fractions[this.fraction].color;
-
- 	context.save();
  	context.translate(this.position.x, this.position.y);
     context.rotate( ((PID1024) * this.angle) + (PID4) );
  	context.moveTo(0, 0);
@@ -1225,7 +1264,7 @@ Planets.Renderable.Missile.prototype.render = function(game, viewport, context) 
  	context.translate(this.position.x, this.position.y);
     context.rotate( ((PID1024) * this.angle) );
  	context.moveTo(0, 0);
- 	context.lineTo(4, 4);
+ 	context.lineTo(-4, 0);
  	context.stroke();
 	context.restore();
 }
@@ -1275,4 +1314,156 @@ Planets.Renderable.MissileCache.prototype.render = function(game, viewport, cont
 		if(this.cache[i])
 			this.cache[i].render(game, viewport, context);
 	}
+}
+
+
+/***********************************************************************
+ * Skynet
+ **********************************************************************/
+
+Planets.Skynet = function() {
+	this.me = Fraction.Enemy;
+	this.planets = {};
+	this.targets = {};
+
+	this.coreRisk = 0.0;
+	this.borderRisk = 0.5;
+	this.playerFactor = 0.01;
+	this.assessDepth = 1;
+}
+
+Planets.Skynet.prototype.hash = function(planet) {
+	return "P" + planet.position.x + "." + planet.position.y;
+}
+
+Planets.Skynet.prototype.addPlanet = function(planet) {
+	this.planets[this.hash(planet)] = {
+		risk : 0,
+		planet : planet,
+		ships : 0
+	};
+}
+
+Planets.Skynet.prototype.evaluate = function() {
+	for(var i in this.targets) {
+		if(this.targets[i].planet.owner == this.me) {
+			this.planets[i] = this.targets[i];
+			delete this.targets[i];
+		} 
+	}
+
+	for(var i in this.planets) {
+		if(this.planets[i].planet.owner != this.me) {
+			delete this.planets[i];
+			continue;
+		}
+		this.planets[i].risk = this.assess(this.planets[i].planet);
+		this.planets[i].ships = this.planets[i].planet.shipCount[this.me];
+	}
+
+	this.redistribute();
+
+	//Do projects...
+	var t = null;
+	for(var i in this.targets) { t = this.targets[i]; break; }
+	if(t == null) {
+		t = this.getTarget();
+		if(t != null) {
+			this.targets[this.hash(t.planet)] = t;
+		}
+	}
+
+	if(t) {
+		var highRisk = this.getHighRisk();
+		for(var i in highRisk) {
+			if(highRisk[i].ships > 15) {
+				console.log("Sending ship to target", t.planet.name);
+				highRisk[i].planet.shipSelected[this.me] = 5;
+				highRisk[i].planet.moveSelectedShips(t.planet, this.me);
+			}
+		}
+	}
+}
+
+Planets.Skynet.prototype.redistribute = function() {
+	var highRisk = this.getHighRisk();
+
+	for(var i in this.planets) {
+		if(this.planets[i].risk < 0.5 && this.planets[i].ships > 6) {
+			var toDist = this.planets[i].ships - 6;
+			for(var x = 0; x < toDist; x++) {
+				this.planets[i].planet.shipSelected[this.me] = 1;
+				this.planets[i].planet.moveSelectedShips(highRisk[(Math.random() * highRisk.length) | 0].planet, this.me);
+			}
+		}
+	}
+}
+
+Planets.Skynet.prototype.getHighRisk = function() {
+
+	var highRisk = [];
+
+	for(var i in this.planets) {
+		if(this.planets[i].risk >= 0.5)
+			highRisk.push(this.planets[i]);
+	}
+
+	return highRisk;
+}
+
+Planets.Skynet.prototype.getRiskDebug = function(planet) {
+	if(this.hash(planet) in this.planets) {
+		return this.planets[this.hash(planet)].risk;
+	}
+
+	return 0;
+}
+
+Planets.Skynet.prototype.assess = function(planet, recDepth) {
+	var risk = 0;
+	var troops = 0;
+	for(var i = 0; i < planet.connections.length; i++) {
+		if(planet.connections[i].owner != this.me) {
+			risk += 1 / planet.connections.length;
+			troops += planet.connections[i].shipCount[Fraction.Player];
+		}
+	}
+
+	var myTroops = planet.shipCount[this.me];
+
+	if(troops > 0 && myTroops > 0) {
+		risk += troops / myTroops;
+	} else if(troops > 0) {
+		risk += troops / 1;
+	} 
+
+	return risk;
+}
+
+Planets.Skynet.prototype.getTarget = function() {
+	var target = null;
+	var risk = Infinity;
+	var tmp;
+	for(var i in this.planets) {
+		for(var x = 0; x < this.planets[i].planet.connections.length; x++) {
+			var p = this.planets[i].planet.connections[x];
+			if(p.owner == this.me || this.hash(p) in this.planets || this.hash(p) in this.targets) continue;
+			tmp = this.assess(p);
+			if(tmp < risk) {
+				risk = tmp;
+				target = p;
+			}
+		}
+	}
+
+	if(risk <= 0.8) {
+		console.log("returning target", target.name, risk)
+		return {
+			planet : target,
+			risk : risk,
+			ships : 0
+		};
+	}
+
+	return null;
 }
