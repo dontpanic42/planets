@@ -245,9 +245,7 @@ Planets.Animation.Linear.prototype.next = function() {
 			return this.b;
 	}
 
-	var tdelta = Date.now() - this.start;
-		tdelta = this.speed * this.direction * tdelta;
-		this.current = this.a + tdelta;
+	this.current = this.a + ((Date.now() - this.start) * this.speed * this.direction);
 	return this.current;
 }
 
@@ -493,10 +491,14 @@ Planets.Viewport.prototype.clear = function() {
 }
 
 Planets.Viewport.prototype.circleVisible = function(x, y, r) {
+	if(x+r < this.offset.x || x-r > (this.vw - this.offset.x )) return false;
+	if(y+r < this.offset.y || y-r > (this.vh - this.offset.y )) return false;
 	return true;
 }
 
 Planets.Viewport.prototype.rectVisible = function(x1, y1, x2, y2) {
+	if(x2 < this.offset.x || x1 > (this.vw - this.offset.x )) return false;
+	if(y2 < this.offset.y || y1 > (this.vh - this.offset.y )) return false;
 	return true;
 }
 
@@ -685,7 +687,7 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	this.spawnTimer = null;
 
 	//Animation
-	this.ownerAnimation = new Planets.Animation.Linear(0.2, 0.8, true, 1);
+	this.ownerAnimation = new Planets.Animation.Linear(0.2, 1.0, true, 1);
 
 	//Some object indices
 	this.renderIndex = this.bgRenderIndex = 0;
@@ -836,6 +838,9 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 }
 
 Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
+	// if this is offscreen, do not render.
+	if(!viewport.circleVisible(this.position.x, this.position.y, this.radius)) return;
+
 	// Draw connections
 	if(this.mouseOver && this.connections.length >= 0 && !this.path) {
 		context.beginPath();
@@ -861,9 +866,9 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 	//Draw ownership
 	context.beginPath();
 	context.lineWidth = 4;
-	context.globalAlpha = (this.ownerApplicant)? this.ownerAnimation.next() : 0.5;
+	context.globalAlpha = (this.ownerApplicant)? this.ownerAnimation.next() : 0.8;
 	context.strokeStyle = Fractions[this.owner].color;
-	context.arc(this.position.x, this.position.y, 10, 0, PI2);
+	context.arc(this.position.x, this.position.y, this.radius - 2, 0, PI2);
 	context.stroke();
 	context.globalAlpha = 1.0;
 
@@ -1053,6 +1058,8 @@ Planets.Renderable.Ship.prototype.moveTo = function(path) {
 }
 
 Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
+	if(!viewport.circleVisible(this.position.x, this.position.y, 2)) return;
+
  	context.beginPath();    
  	context.fillStyle = Fractions[this.fraction].color;
 
