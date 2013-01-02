@@ -22,6 +22,44 @@ var Keys = {
 	DOWN : 38
 };
 
+//Time in ms it takes to change the planet ownership.
+var ownershipChangeRate = 10000;
+//Time in ms to spawn new ships.
+var planetSpawnRate = 12000;
+//If mor than planetSpawnMaxPresent ships of a fraction
+//are in orbit, stop spawning (overpopulation)
+var planetSpawnMaxPresent = 12;
+
+var Fractions = [
+	{
+		color : "rgb(0, 255, 0)",
+		name  : "Player",
+		planetCount : 0
+	},
+	{
+		color : "rgb(255, 0, 0)",
+		name  : "Enemy",
+		planetCount : 0
+	},
+	{
+		color : "rgb(0, 0, 255)",
+		name  : "Pirates",
+		planetCount : 0
+	},
+	{
+		color : "rgb(128, 128, 128)",
+		name  : "Neutral",
+		planetCount : 0
+	}
+];
+
+var Fraction = {
+	Player : 0,
+	Pirates: 2,
+	Enemy : 1,
+	Neutral : 3
+};
+
 /***********************************************************************
  * Glaxy Builder
  **********************************************************************/
@@ -72,10 +110,12 @@ Planets.Build = function(game, viewport) {
 				cache[x-1][y].connect(o);
 			}
 
-			o.spawnShip(game);
-			o.spawnShip(game);
-			o.spawnShip(game);
-			o.spawnShip(game);
+			o.spawnShip(game, Fraction.Player);
+			o.spawnShip(game, Fraction.Player);
+			o.spawnShip(game, Fraction.Player);
+			o.spawnShip(game, Fraction.Player);
+			o.spawnShip(game, Fraction.Enemy);
+			o.spawnShip(game, Fraction.Enemy);
 		}
 	}
 }
@@ -92,7 +132,7 @@ Planets.GeneratePlanetName = function() {
 
 	var name = prefix[ (Math.random() * prefix.length) | 0] + " ";
 		name+= pnames[ (Math.random() * pnames.length) | 0] + " ";
-		name+= posfix[ (Math.random() * posfix.length) | 0] + " ";
+		name+= posfix[ (Math.random() * posfix.length) | 0];
 
 	return name;
 }
@@ -169,18 +209,6 @@ Planets.Path = function(start, destination) {
 	}
 
 	return null;
-}
-
-Planets.Path.show = function(list) {
-	for(var i = 0; i < list.length - 1; i++) {
-		list[i].showPath = list[i+1];
-	}
-}
-
-Planets.Path.hide = function(list) {
-	for(var i = 0; i < list.length - 1; i++) {
-		list[i].showPath = null;
-	}
 }
 
 /***********************************************************************
@@ -472,7 +500,7 @@ Planets.Mouse.prototype.upHandler = function(event) {
 	if( this.currentDown != null && 
 		this.game.selected != null &&
 		this.currentDown != this.game.selected) 
-			this.currentDown.moveSelectedShips(this.game.selected);
+			this.currentDown.moveSelectedShips(this.game.selected, Fraction.Player);
 	
 	this.down = false;
 	this.currentDown = null;
@@ -530,10 +558,22 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	this.connections = [];
 	this.mouseOver = false;
 
-	//Properties for handling orbitting ships
-	this.ships = [];
-	this.shipCount = 0;
-	this.shipSelected = 0;
+	//Properties for handling orbitting ships	
+	this.ships = new Array(Fractions.length);
+	this.shipCount = new Array(Fractions.length); 
+	this.shipSelected = new Array(Fractions.length); 
+	for(var i = 0; i < Fractions.length; i++) {
+		this.ships[i] = [];
+		this.shipCount[i] = 0;
+		this.shipSelected[i] = 0;
+	}
+
+	//Ownership stuff
+	this.ownerChangeStart = null;
+	this.ownerApplicant = null;
+	this.owner = Fraction.Neutral;
+	Fractions[this.owner].planetCount++;
+	this.spawnTimer = null;
 
 	//Some object indices
 	this.renderIndex = this.bgRenderIndex = 0;
@@ -549,40 +589,42 @@ Planets.Renderable.Planet.prototype.connect = function(planet) {
 	this.connections.push(planet);
 }
 
-Planets.Renderable.Planet.prototype.spawnShip = function(game) {
-	var i = this.ships.length;
-	var s = new Planets.Renderable.Ship(this);
+Planets.Renderable.Planet.prototype.spawnShip = function(game, fraction) {
+	var i = this.ships[fraction].length;
+	var s = new Planets.Renderable.Ship(this, fraction);
 	game.push(s.init());
 	s.pIndex = i;
 	s.attached = true;
-	this.shipCount++;
-	this.ships[i] = s;
+	this.shipCount[fraction]++;
+	this.ships[fraction][i] = s;
 	return s;
 }
 
 Planets.Renderable.Planet.prototype.attachShip = function(ship) {
-	var i = this.ships.length;
+	var f = ship.getFraction();
+	var i = this.ships[f].length;
 	ship.pIndex = i;
 	ship.attached = true;
-	this.ships[i] = ship;
-	this.shipCount++;
+	this.ships[f][i] = ship;
+	this.shipCount[f]++;
 }
 
 Planets.Renderable.Planet.prototype.removeShip = function(ship) {
 	if(!ship.attached) return;
-	this.ships[ship.pIndex].attached = false;
-	this.ships[ship.pIndex] = null;
-	this.shipCount--;
+	var f = ship.getFraction();
+	this.ships[f][ship.pIndex].attached = false;
+	this.ships[f][ship.pIndex] = null;
+	this.shipCount[f]--;
 }
 
-Planets.Renderable.Planet.prototype.moveSelectedShips = function(target) {
+Planets.Renderable.Planet.prototype.moveSelectedShips = function(target, fraction) {
 	var path = Planets.Path(this, target);
-	var len = this.ships.length, counter = 0;
+	var len = this.ships[fraction].length, counter = 0;
 	for(var i = 0; i < len; i++) {
-		if(counter >= this.shipSelected) return;
-		if(this.ships[i] != null) {
-			this.ships[i].moveTo(path);
-			this.removeShip(this.ships[i]);
+		if(counter >= this.shipSelected[fraction]) return;
+		if(this.ships[fraction][i] != null) {
+			this.ships[fraction][i].moveTo(path);
+			this.removeShip(this.ships[fraction][i]);
 			counter++;
 		}
 	}
@@ -594,6 +636,58 @@ Planets.Renderable.Planet.prototype.showPathPreview = function(path) {
 
 Planets.Renderable.Planet.prototype.hidePathPreview = function() {
 	this.path = null;
+}
+
+Planets.Renderable.Planet.prototype.checkOwnership = function() {
+	// 1. When neutral and ships of only one fraction and no timer, start timer.
+	var oneFractionPresent = false;
+	var noFractionPresent = true;
+	var oneFractionIndex = null;
+
+	for(var i = 0; i < Fractions.length; i++) {
+		if(this.shipCount[i] > 0) {
+			if(oneFractionIndex == null) {
+				noFractionPresent = false;
+				oneFractionIndex = i;
+				oneFractionPresent = true;
+			} else {
+				oneFractionPresent = false;
+			}
+		}
+	}
+
+	//Only one fraction is present: Owner change imminent.
+	if(oneFractionPresent) {
+		if(this.owner == oneFractionIndex) return;
+		if(this.ownerChangeStart == null || this.ownerApplicant != oneFractionIndex) {
+			this.ownerChangeStart = Date.now();
+			this.ownerApplicant = oneFractionIndex;
+			console.log(this.name + ": Ownership change imminent.")
+		} else {
+			if(Date.now() - this.ownerChangeStart >= ownershipChangeRate) {
+				this.owner = oneFractionIndex;
+				this.ownerChangeStart = null;
+				this.ownerApplicant = null;
+				this.spawnTimer = Date.now();
+				console.log("Planet " + this.name + " now belongs to " + Fractions[this.owner].name);
+			}
+		}
+	// zero or more fractions present: stop ownership change, do nothing.
+	} else {
+		if(this.ownerChangeStart) {
+			this.ownerChangeStart = null;
+			this.ownerApplicant = null;
+		}
+	}
+}
+
+Planets.Renderable.Planet.prototype.checkSpawn = function(game) {
+	if(this.owner == Fraction.Neutral) return;
+	if(Date.now() - this.spawnTimer >= planetSpawnRate) {
+		this.spawnTimer = Date.now();
+		if(this.shipCount[this.owner] > planetSpawnMaxPresent) return;
+		this.spawnShip(game, this.owner);
+	}
 }
 
 Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime, gameTime) {
@@ -612,8 +706,10 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 
 
 	if(this.mouseOver) {
-		this.shipSelected += game.mouse.getClearDelta();
-		this.shipSelected = (this.shipSelected < 0)? 0 : (this.shipSelected > this.shipCount)? this.shipCount : this.shipSelected;
+		this.shipSelected[Fraction.Player] += game.mouse.getClearDelta();
+		this.shipSelected[Fraction.Player] = 
+			(this.shipSelected[Fraction.Player] < 0)? 0 : 
+			(this.shipSelected[Fraction.Player] > this.shipCount[Fraction.Player])? this.shipCount[Fraction.Player] : this.shipSelected[Fraction.Player];
 	
 		//Preview possible path to this planet
 		if(game.mouse.down && game.mouse.currentDown != this && !this.path)
@@ -622,6 +718,9 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 
 	if(this.path && (!this.mouseOver || !game.mouse.currentDown))
 		this.hidePathPreview();
+
+	this.checkOwnership();
+	this.checkSpawn(game);
 }
 
 Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
@@ -647,6 +746,14 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 		context.stroke();
 	}
 
+	//Draw ownership
+	context.beginPath();
+	context.lineWidth = 2;
+	context.strokeStyle = Fractions[this.owner].color;
+	context.arc(this.position.x, this.position.y, 20, 0, PI2);
+	context.stroke();
+
+	//Draw UI
 	if(this.mouseOver)
 		this.renderStatusUI(context);
 
@@ -656,7 +763,7 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 	var x = this.position.x, y = this.position.y, r = this.radius;
 
 
-	if(this.shipCount) {
+	if(this.shipCount[Fraction.Player]) {
 		context.beginPath();
 		context.lineWidth = 12;
 
@@ -682,7 +789,7 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 		context.strokeStyle = "#000000";
 		context.lineWidth = 1;
 		context.font = 'bold 16pt Verdana';
-		var str = this.shipSelected + "/" + this.shipCount;
+		var str = this.shipSelected[Fraction.Player] + "/" + this.shipCount[Fraction.Player];
 		var dim = context.measureText(str);
 		context.textBaseline = "middle";
 
@@ -746,10 +853,11 @@ Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context)
  * Ship
  **********************************************************************/
 
-Planets.Renderable.Ship = function(planet) { 
+Planets.Renderable.Ship = function(planet, fraction) { 
 	this.orbit = planet;
 	this.position = {x: 0, y: 0};
 	this.currentMoveTarget = null;
+	this.fraction = fraction;
 	//Randomize base speed to spread ship distribution.
 	//This should be changed to st. that makes sense,
 	//e.g. speed increase with age/
@@ -776,6 +884,10 @@ Planets.Renderable.Ship.prototype.init = function() {
 	this.moveQ = [];				//task que
 
 	return this;
+}
+
+Planets.Renderable.Ship.prototype.getFraction = function() { 
+	return this.fraction;
 }
 
 Planets.Renderable.Ship.prototype.update = function(game, viewport, deltaTime, gameTime) {
@@ -829,7 +941,7 @@ Planets.Renderable.Ship.prototype.moveTo = function(path) {
 
 Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
  	context.beginPath();    
- 	context.fillStyle = '#000000';
+ 	context.fillStyle = Fractions[this.fraction].color;
 
  	context.save();
  	context.translate(this.position.x, this.position.y);
