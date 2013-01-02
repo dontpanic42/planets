@@ -4,6 +4,8 @@ var PID4 = PI2 / 4;
 var PID1024 = PI2 / 1024;
 var PID180 = 180 / (Math.PI);
 
+var debug = true;
+
 var distance  = function(position1, position2) {
 	var x2 = position2.x,
 		y2 = position2.y;
@@ -277,6 +279,21 @@ Planets.Main = function(w, h) {
 
 
 	this.selected = null;
+
+	if(debug) {
+		this.fpsTimer = Date.now();
+		this.renderTime = 0;
+		this.updateTime = 0;
+		this.updateCounter = 0;
+
+		this.lastUpdateFPS = 0;
+		this.lastRenderFPS = 0;
+		this.lastFullFPS = 0;
+
+		this.potentialFPS = 0;
+
+		this.fps = 0;
+	}
 }
 
 Planets.Main.prototype.init = function() {
@@ -298,7 +315,7 @@ Planets.Main.prototype.init = function() {
 }
 
 Planets.Main.prototype.start = function() {
-	this.interval = setInterval(this.loop.bind(this), 3);
+	this.interval = setInterval(this.loop.bind(this), 20);
 }
 
 Planets.Main.prototype.stop = function() {
@@ -345,6 +362,9 @@ Planets.Main.prototype.loop = function() {
 	this.viewport.handleInput(this.mouse, this.key);
 	this.viewport.clear();
 
+	if(debug) {
+		var timerUpdateStart = Date.now();
+	}
 
 	var i=0, l=this.renderList.length, bgl = this.bgRenderList.length;
 
@@ -359,6 +379,11 @@ Planets.Main.prototype.loop = function() {
 			if(this.bgRenderList[i] != null) 
 				this.bgRenderList[i].bgUpdate(this, this.viewport, deltaTime, gameTime);
 
+	if(debug) {
+		this.updateTime += (Date.now() - timerUpdateStart);
+		var timerRenderStart = Date.now();
+	}
+
 	//always render foreground
 	for(i = 0; i < l; i++)
 		if(this.renderList[i] != null)
@@ -369,6 +394,31 @@ Planets.Main.prototype.loop = function() {
 		for(i = 0; i < bgl; i++)
 			if(this.bgRenderList[i] != null)
 				this.bgRenderList[i].bgRender(this, this.viewport, this.viewport.bgcontext);
+
+	if(debug) {
+		this.renderTime += Date.now() - timerRenderStart;
+		this.updateCounter++;
+
+		if(Date.now() - this.fpsTimer > 1000) {
+			console.log("Update");
+			this.fpsTimer = Date.now();
+			this.lastUpdateFPS = Math.round(this.updateTime / this.updateCounter);
+			this.lastRenderFPS = Math.round(this.renderTime / this.updateCounter);
+			this.lastFullFPS = Math.round((this.renderTime + this.updateTime) / this.updateCounter);
+			this.fps = this.updateCounter;
+			this.updateCounter = 0;
+			this.updateTime = this.renderTime = 0;
+			this.potentialFPS = Math.round(1000 / this.lastFullFPS);
+		}
+
+		this.viewport.writeDebug(
+			this.lastUpdateFPS,
+			this.lastRenderFPS,
+			this.lastFullFPS,
+			this.fps,
+			this.potentialFPS
+			);
+	}
 }
 
 /***********************************************************************
@@ -410,6 +460,17 @@ Planets.Viewport = function(game, w, h) {
 	this.moveCorner = 30;	// Hot corner size
 
 	this.bgUpdated = false;
+}
+
+Planets.Viewport.prototype.writeDebug = function(update, render, full, fps, pfps) {
+	this.context.font = "10pt Lucida Console";
+	this.context.fillStyle = "#ffffff";
+	this.context.fillText("Update: " + update, 10 - this.offset.x, 20 - this.offset.y);
+	this.context.fillText("Render: " + render, 10 - this.offset.x, 30 - this.offset.y);
+	this.context.fillText("Combin: " + full,   10 - this.offset.x, 40 - this.offset.y);
+	this.context.fillText("PotFPS: " + pfps,   10 - this.offset.x, 50 - this.offset.y);
+	this.context.fillText("ReaFPS: " + fps,   10 - this.offset.x, 60 - this.offset.y);
+	this.context.fill();
 }
 
 Planets.Viewport.prototype.clear = function() {
