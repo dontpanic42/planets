@@ -748,10 +748,12 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 
 	//Draw ownership
 	context.beginPath();
-	context.lineWidth = 2;
+	context.lineWidth = 4;
+	context.globalAlpha = 0.5;
 	context.strokeStyle = Fractions[this.owner].color;
-	context.arc(this.position.x, this.position.y, 20, 0, PI2);
+	context.arc(this.position.x, this.position.y, 10, 0, PI2);
 	context.stroke();
+	context.globalAlpha = 1.0;
 
 	//Draw UI
 	if(this.mouseOver)
@@ -777,8 +779,7 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 			context.beginPath();
 			context.strokeStyle = this.color;
 			context.globalAlpha = 0.5;
-			var a = (this.shipSelected / this.shipCount) * PI2;
-			context.arc(x, y, r + 12, 0, (this.shipSelected / this.shipCount) * PI2);
+			context.arc(x, y, r + 12, 0, (this.shipSelected[Fraction.Player] / this.shipCount[Fraction.Player]) * PI2);
 			context.stroke();	
 			context.globalAlpha = 1;
 		}
