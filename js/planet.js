@@ -112,12 +112,20 @@ Planets.Build = function(game, viewport) {
 				cache[x-1][y].connect(o);
 			}
 
-			o.spawnShip(game, Fraction.Player);
-			o.spawnShip(game, Fraction.Player);
-			o.spawnShip(game, Fraction.Player);
-			o.spawnShip(game, Fraction.Player);
-			o.spawnShip(game, Fraction.Enemy);
-			o.spawnShip(game, Fraction.Enemy);
+			// o.spawnShip(game, Fraction.Player);
+			// o.spawnShip(game, Fraction.Player);
+			// o.spawnShip(game, Fraction.Player);
+			// o.spawnShip(game, Fraction.Player);
+			// o.spawnShip(game, Fraction.Enemy);
+			// o.spawnShip(game, Fraction.Enemy);
+
+			var rndE = Math.round(Math.random() * 10) + 2;
+			var rndP = Math.round(Math.random() * 10) + 2;
+
+			for(var i = 0; i < rndE; i++)
+				o.spawnShip(game, Fraction.Enemy);
+			for(var i = 0; i < rndP; i++)
+				o.spawnShip(game, Fraction.Player);
 		}
 	}
 }
@@ -219,6 +227,10 @@ Planets.Path = function(start, destination) {
 
 Planets.Animation = function() { }
 
+/**
+ * Returns values between a and b, starting with a.
+ * If circle is true, this animation will never finish.
+ */
 Planets.Animation.Linear = function(a, b, circle, speed) {
 	this.a = a;
 	this.b = b;
@@ -257,6 +269,28 @@ Planets.Animation.Linear.prototype.switch = function() {
 	this.direction = -this.direction;
 	this.start = Date.now();
 	this.current = this.a;
+}
+
+/**
+ * Reports 'true' after "interval" ms.
+ */
+Planets.Animation.Burst = function(interval, randomizeStart) {
+	this.time = Date.now();
+	if(randomizeStart) this.time -= Math.round(Math.random() * interval);
+	this.interval = interval;
+}
+
+Planets.Animation.Burst.prototype.next = function() {
+	if(Date.now() - this.time > this.interval) {
+		this.time = Date.now();
+		return true;
+	}
+
+	return false;
+}
+
+Planets.Animation.Burst.prototype.isFinished = function() {
+	return false;
 }
 
 /***********************************************************************
@@ -310,6 +344,9 @@ Planets.Main.prototype.init = function() {
 	this.mouse = new Planets.Mouse(this, this.viewport);
 
 	Planets.Build(this, this.viewport);
+
+	Planets.Renderable.Missile.cache = new Planets.Renderable.MissileCache();
+	this.push(Planets.Renderable.Missile.cache);
 }
 
 Planets.Main.prototype.start = function() {
@@ -398,7 +435,6 @@ Planets.Main.prototype.loop = function() {
 		this.updateCounter++;
 
 		if(Date.now() - this.fpsTimer > 1000) {
-			console.log("Update");
 			this.fpsTimer = Date.now();
 			this.lastUpdateFPS = Math.round(this.updateTime / this.updateCounter);
 			this.lastRenderFPS = Math.round(this.renderTime / this.updateCounter);
@@ -744,6 +780,19 @@ Planets.Renderable.Planet.prototype.moveSelectedShips = function(target, fractio
 	}
 }
 
+Planets.Renderable.Planet.prototype.getRandomEnemy = function(forFraction) {
+	for(var i = 0; i < this.shipCount.length; i++) {
+		if(i != forFraction && this.shipCount[i] > 0) {
+			for(var x = 0; x < this.ships[i].length; x++) {
+				if(this.ships[i][x] != null)
+					return this.ships[i][x];
+			} 
+		}
+	}
+
+	return null;
+}
+
 Planets.Renderable.Planet.prototype.showPathPreview = function(path) {
 	this.path = path;
 }
@@ -845,7 +894,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 	if(this.mouseOver && this.connections.length >= 0 && !this.path) {
 		context.beginPath();
 		context.lineWidth = 1;
-		context.strokeStyle = "rgba(0, 0, 0, 0.3)";
+		context.strokeStyle = "rgba(255, 255, 255, 0.3)";
 
 		for(var i = 0; i < this.connections.length; i++)
 			this.renderPath(context, this, this.connections[i]);
@@ -855,7 +904,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 	} else if(this.path) {
 		context.lineWidth = 2;
 		context.beginPath();
-		context.strokeStyle = "rgba(0, 0, 0, 0.3)";
+		context.strokeStyle = "rgba(255, 255, 255, 0.8)";
 
 		for(var i = 0; i < this.path.length - 1; i++)
 			this.renderPath(context, this.path[i], this.path[i+1]);
@@ -981,6 +1030,11 @@ Planets.Renderable.Ship = function(planet, fraction) {
 	//e.g. speed increase with age/
 	//speed decrease with lower health points 
 	this.speed = this.speed + ((Math.random() * 30) | 0);
+
+	this.health = 50;
+	this.cannon = new Planets.Animation.Burst(4000, true);
+
+	this.enemy = null;
 }
 
 Planets.Renderable.Ship.prototype = new Planets.Renderable();
@@ -1008,7 +1062,32 @@ Planets.Renderable.Ship.prototype.getFraction = function() {
 	return this.fraction;
 }
 
+Planets.Renderable.Ship.prototype.checkFight = function() {
+	if(!this.orbit || !this.attached) return;
+
+	if(this.cannon.next()) {
+
+		if(!(this.enemy && this.enemy.health > 0) || this.enemy.orbit != this.orbit) 
+			this.enemy = this.orbit.getRandomEnemy(this.fraction);
+		
+		if(this.enemy)
+			Planets.Renderable.Missile.send(this, this.enemy);
+	}
+}
+
+Planets.Renderable.Ship.prototype.kill = function(game) {
+	game.remove(this);
+	if(this.orbit && this.attached)
+		this.orbit.removeShip(this);
+}
+
 Planets.Renderable.Ship.prototype.update = function(game, viewport, deltaTime, gameTime) {
+
+	if(this.health <= 0) {
+		this.kill(game);
+		return;
+	}
+
 	if(this.currentMoveTarget == null && this.moveQ.length > 0) 
 		this.currentMoveTarget = this.moveQ.shift();
 
@@ -1039,6 +1118,7 @@ Planets.Renderable.Ship.prototype.update = function(game, viewport, deltaTime, g
 			if(Math.abs(requiredA - this.angle) < 10) {
 				this.orbit = null;
 				this.angle = requiredA + (1024*0.75);
+				this.enemy = null;
 			}
 			return;
 		}
@@ -1049,6 +1129,8 @@ Planets.Renderable.Ship.prototype.update = function(game, viewport, deltaTime, g
 		this.position.x = (this.position.x + speed * Planets.lookup.cos[a | 0]);
 		this.position.y = (this.position.y + speed * Planets.lookup.sin[a | 0]);
 	}
+
+	this.checkFight();
 }
 
 Planets.Renderable.Ship.prototype.moveTo = function(path) {
@@ -1059,6 +1141,8 @@ Planets.Renderable.Ship.prototype.moveTo = function(path) {
 
 Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
 	if(!viewport.circleVisible(this.position.x, this.position.y, 2)) return;
+
+	if(this.health < 0) return;
 
  	context.beginPath();    
  	context.fillStyle = Fractions[this.fraction].color;
@@ -1082,3 +1166,113 @@ Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
 	context.restore();
 }
 
+/***********************************************************************
+ * Missile
+ **********************************************************************/
+
+Planets.Renderable.Missile = function(origin, target) { 
+	this.speed = 80;
+	this.angle = 0;
+	this.position = {x: origin.position.x, y: origin.position.y};
+	this.target = target;
+	this.finished = false;
+	this.index = 0;
+}
+
+Planets.Renderable.Missile.prototype = new Planets.Renderable();
+Planets.Renderable.Missile.prototype.constructor = Planets.Renderable.Missile;
+
+Planets.Renderable.Missile.send = function(origin, target) { 
+	Planets.Renderable.Missile.cache.get(origin, target);
+}
+
+Planets.Renderable.Missile.cache = null;
+
+Planets.Renderable.Missile.prototype.reset = function(origin, target) {
+	this.position.x = origin.position.x;
+	this.position.y = origin.position.y;
+	this.target = target;
+	this.finished = false;
+}
+
+
+Planets.Renderable.Missile.prototype.isFinished = function() {
+	return this.finished;
+}
+
+Planets.Renderable.Missile.prototype.update = function(game, viewport, deltaTime, gameTime) {
+	if(this.finished) return;
+
+	this.angle = angulate(this.position, this.target.position);
+
+	var speed = this.speed * (deltaTime / 1000);
+	this.position.x = (this.position.x + speed * Planets.lookup.cos[this.angle | 0]);
+	this.position.y = (this.position.y + speed * Planets.lookup.sin[this.angle | 0]);
+
+	if(distance(this.position, this.target.position) < 10 || this.target.health < 0) {
+		this.target.health -= 10 + (Math.random() * 5);
+		this.finished = true;
+		Planets.Renderable.Missile.cache.retain(this);
+	}
+}
+
+Planets.Renderable.Missile.prototype.render = function(game, viewport, context) {
+	if(this.finished) return;
+	context.save();
+	context.beginPath();
+	context.lineWidth = 2;
+	context.strokeStyle = "#ffffff";
+ 	context.translate(this.position.x, this.position.y);
+    context.rotate( ((PID1024) * this.angle) );
+ 	context.moveTo(0, 0);
+ 	context.lineTo(4, 4);
+ 	context.stroke();
+	context.restore();
+}
+
+Planets.Renderable.MissileCache = function() {
+	this.cache = [];
+	this.cacheSlots = [];
+	this.free  = [];
+	this.renderIndex = 0;
+}
+
+Planets.Renderable.MissileCache.prototype = new Planets.Renderable();
+Planets.Renderable.MissileCache.prototype.constructor = Planets.Renderable.MissileCache;
+
+Planets.Renderable.MissileCache.prototype.get = function(origin, target) {
+	if(!this.free.length) {
+		var m = new Planets.Renderable.Missile(origin, target);
+	} else {
+		var m = this.free.pop();
+		m.reset(origin, target);
+	}
+
+	if(this.cacheSlots.length) {
+		m.index = this.cacheSlots.pop();
+		this.cache[m.index] = m;
+	} else {
+		m.index = this.cache.length;
+		this.cache.push(m);
+	}
+}
+
+Planets.Renderable.MissileCache.prototype.retain = function(missile) {
+	this.free.push(missile);
+	this.cache[missile.index] = null;
+	this.cacheSlots.push(missile.index);
+}
+
+Planets.Renderable.MissileCache.prototype.update = function(game, viewport, deltaTime, gameTime) {
+	for(var i = 0; i < this.cache.length; i++) {
+		if(this.cache[i])
+			this.cache[i].update(game, viewport, deltaTime, gameTime);
+	}
+}
+
+Planets.Renderable.MissileCache.prototype.render = function(game, viewport, context) {
+	for(var i = 0; i < this.cache.length; i++) {
+		if(this.cache[i])
+			this.cache[i].render(game, viewport, context);
+	}
+}

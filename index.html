@@ -17,7 +17,8 @@
 			var bgy = $(window).height();
 			$('body').css('background-size', bgx + "px " + bgy + "px");
 
-			var m = new Planets.Main(2000, 2000);
+			// var m = new Planets.Main(2000, 2000);
+			var m = new Planets.Main(1200, 800);
 				m.init();
 				m.start();
 		});
@@ -27,7 +28,8 @@
 		* { padding: 0; margin: 0; overflow: hidden;}
 
 		body {
-			background-color: rgb(122,114,103);
+			/* "Late Moonlight Kiss" blue: 41,52,86 */
+			background-color: rgb(41,52,86);
 			/* background-image: url(backgrounds/1.jpg); */
 			text-align: center;
 		}
