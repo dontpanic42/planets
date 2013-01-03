@@ -27,7 +27,7 @@ var Keys = {
 //Time in ms it takes to change the planet ownership.
 var ownershipChangeRate = 10000;
 //Time in ms to spawn new ships.
-var planetSpawnRate = 12000;
+var planetSpawnRate = 20000;
 //If mor than planetSpawnMaxPresent ships of a fraction
 //are in orbit, stop spawning (overpopulation)
 var planetSpawnMaxPresent = 12;
@@ -370,6 +370,8 @@ Planets.Main.prototype.init = function() {
 	this.key = new Planets.Keymap();
 	this.mouse = new Planets.Mouse(this, this.viewport);
 
+	this.skynetUpdate = new Planets.Animation.Burst(500);
+
 	Planets.Build(this, this.viewport);
 
 	Planets.Renderable.Missile.cache = new Planets.Renderable.MissileCache();
@@ -430,7 +432,8 @@ Planets.Main.prototype.loop = function() {
 
 	var i=0, l=this.renderList.length, bgl = this.bgRenderList.length;
 
-	this.skynet.evaluate();
+	if(this.skynetUpdate.next(deltaTime))
+		this.skynet.evaluate();
 
 	//always update foreground
 	for(i = 0; i < l; i++)
@@ -451,13 +454,13 @@ Planets.Main.prototype.loop = function() {
 	//always render foreground
 	for(i = 0; i < l; i++)
 		if(this.renderList[i] != null)
-			this.renderList[i].render(this, this.viewport, this.viewport.context);
+			this.renderList[i].render(this, this.viewport, this.viewport.context, deltaTime, gameTime);
 
 	//render background as needed
 	if(this.viewport.bgUpdated)
 		for(i = 0; i < bgl; i++)
 			if(this.bgRenderList[i] != null)
-				this.bgRenderList[i].bgRender(this, this.viewport, this.viewport.bgcontext);
+				this.bgRenderList[i].bgRender(this, this.viewport, this.viewport.bgcontext, deltaTime, gameTime);
 
 	if(debug) {
 		this.renderTime += Date.now() - timerRenderStart;
@@ -718,8 +721,8 @@ Planets.Renderable.prototype.init = function() { }
 Planets.Renderable.prototype.load = function() { }
 Planets.Renderable.prototype.update = function(game, viewport, gameTime, deltaTime) { }
 Planets.Renderable.prototype.bgUpdate = function(game, viewport, gameTime, deltaTime) { }
-Planets.Renderable.prototype.render = function(game, viewport, context) { }
-Planets.Renderable.prototype.bgRender = function(game, viewport, context) { }
+Planets.Renderable.prototype.render = function(game, viewport, context, deltaTime, gameTime) { }
+Planets.Renderable.prototype.bgRender = function(game, viewport, context, deltaTime, gameTime) { }
 Planets.Renderable.prototype.destroy = function() { }
 
 /***********************************************************************
@@ -915,7 +918,7 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 	this.checkSpawn(game);
 }
 
-Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
+Planets.Renderable.Planet.prototype.render = function(game, viewport, context, deltaTime, gameTime) {
 	// if this is offscreen, do not render.
 	if(!viewport.circleVisible(this.position.x, this.position.y, this.radius)) return;
 
@@ -954,7 +957,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context) {
 	if(this.owner != Fraction.Neutral) {
 		context.beginPath();
 		context.lineWidth = 4;
-		context.globalAlpha = (this.ownerApplicant)? this.ownerAnimation.next() : 0.8;
+		context.globalAlpha = (this.ownerApplicant)? this.ownerAnimation.next(deltaTime) : 0.8;
 		context.strokeStyle = Fractions[this.owner].color;
 		context.arc(this.position.x, this.position.y, this.radius - 2, 0, PI2);
 		context.stroke();
@@ -1028,7 +1031,7 @@ Planets.Renderable.Planet.prototype.renderPath = function(context, origin, targe
 		target.position.y + target.radius * Planets.lookup.sin[b]);
 }
 
-Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context) {
+Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context, deltaTime, gameTime) {
 	var x = this.position.x, y = this.position.y, r = this.radius;
 
 	var grdInner = context.createRadialGradient(x, y, 5, x, y, r);
@@ -1102,10 +1105,10 @@ Planets.Renderable.Ship.prototype.getFraction = function() {
 	return this.fraction;
 }
 
-Planets.Renderable.Ship.prototype.checkFight = function() {
+Planets.Renderable.Ship.prototype.checkFight = function(deltaTime) {
 	if(!this.orbit || !this.attached) return;
 
-	if(this.cannon.next()) {
+	if(this.cannon.next(deltaTime)) {
 
 		if(!(this.enemy && this.enemy.health > 0) || this.enemy.orbit != this.orbit) 
 			this.enemy = this.orbit.getRandomEnemy(this.fraction);
@@ -1170,7 +1173,7 @@ Planets.Renderable.Ship.prototype.update = function(game, viewport, deltaTime, g
 		this.position.y = (this.position.y + speed * Planets.lookup.sin[a | 0]);
 	}
 
-	this.checkFight();
+	this.checkFight(deltaTime);
 }
 
 Planets.Renderable.Ship.prototype.moveTo = function(path) {
@@ -1179,7 +1182,7 @@ Planets.Renderable.Ship.prototype.moveTo = function(path) {
 			this.moveQ.push(path[i]);
 }
 
-Planets.Renderable.Ship.prototype.render = function(game, viewport, context) {
+Planets.Renderable.Ship.prototype.render = function(game, viewport, context, deltaTime, gameTime) {
 	if(!viewport.circleVisible(this.position.x, this.position.y, 2)) return;
 
 	if(this.health < 0) return;
@@ -1255,7 +1258,7 @@ Planets.Renderable.Missile.prototype.update = function(game, viewport, deltaTime
 	}
 }
 
-Planets.Renderable.Missile.prototype.render = function(game, viewport, context) {
+Planets.Renderable.Missile.prototype.render = function(game, viewport, context, deltaTime, gameTime) {
 	if(this.finished) return;
 	context.save();
 	context.beginPath();
@@ -1309,7 +1312,7 @@ Planets.Renderable.MissileCache.prototype.update = function(game, viewport, delt
 	}
 }
 
-Planets.Renderable.MissileCache.prototype.render = function(game, viewport, context) {
+Planets.Renderable.MissileCache.prototype.render = function(game, viewport, context, deltaTime, gameTime) {
 	for(var i = 0; i < this.cache.length; i++) {
 		if(this.cache[i])
 			this.cache[i].render(game, viewport, context);
@@ -1334,15 +1337,17 @@ Planets.Skynet = function() {
 	this.free = [];
 
 	this.a_targets = {};
+	//TODO: free i_targets when scoring ok again...
 	this.i_targets = {};
 }
 
 Planets.Skynet.prototype.const = {
-	targetRatio : 1.2,		//the targeted ratio ownShips<>enemyShips for border planets
+	targetRatio : 0.5,		//the targeted ratio ownShips<>enemyShips for border planets
 	emptyAmount : 2,		//the proposed enemy count for empty planets.
 	baseAmount : 3, 			//the amount of ships on non-border planets
 	maxTargets : 1,
-	targetFail : -10
+	targetFail : -10,
+	neighbourTroopEstimation : 0.1
 }
 
 Planets.Skynet.prototype.evaluate = function() {
@@ -1365,7 +1370,7 @@ Planets.Skynet.prototype.updateLists = function() {
 	//Splits planets in core and border planets.
 	for(var i in this.planets) {
 		p = this.planets[i];
-		if(p.owner != this.me) coninue;
+		if(p.owner != this.me) continue;
 
 		if(this.isBorderPlanet(p))
 			this.border.push(p);
@@ -1419,6 +1424,10 @@ Planets.Skynet.prototype.evaluateCurrentTargets = function() {
 	//Check if current targets are still valid targets...
 	for(var i in this.a_targets) {
 
+		if(i in this.i_targets)
+			delete this.i_targets[i];
+
+		//TODO: this sometimes doesn't work...
 		if(this.a_targets[i].owner == this.me) {
 			this.planets[i] = this.a_targets[i];
 			delete this.a_targets[i];
@@ -1490,7 +1499,7 @@ Planets.Skynet.prototype.searchTarget = function() {
 	for(var i = 0; i < this.border.length; i++) {
 		for(var x = 0; x < this.border[i].connections.length; x++) {
 			tmp = this.border[i].connections[x];
-			if(tmp.owner == this.me || tmp in this.a_targets || tmp in this.i_targets) continue;
+			if(tmp.owner == this.me || tmp in this.a_targets) continue;
 
 			tmps = this.scoreTarget(tmp);
 			if(tmps.score > s.score) {
@@ -1506,13 +1515,15 @@ Planets.Skynet.prototype.searchTarget = function() {
 Planets.Skynet.prototype.scoreTarget = function(planet) {
 	var s = 0, t = 0, p = null;
 	t += planet.shipCount[Fraction.Player];
+	s -= planet.shipCount[Fraction.Player];
 	for(var i = 0; i < planet.connections.length; i++) {
 		if(planet.connections[i].owner == this.me) s += 1;
-		t += (planet.connections[i].shipCount[Fraction.Player]);
+		t += this.const.neighbourTroopEstimation * (planet.connections[i].shipCount[Fraction.Player]);
+		s -= this.const.neighbourTroopEstimation * (planet.connections[i].shipCount[Fraction.Player]);
 	}
 
 	return {
-		score : s - t,	//general score
+		score : s,	//general score
 		troops : t,  	//required troops
 		planet : planet
 	};
@@ -1529,18 +1540,23 @@ Planets.Skynet.prototype.getRequiredShips = function(planet) {
 	var enemytroops = planet.shipCount[Fraction.Player];
 	for(var i = 0; i < planet.connections.length; i++) {
 		if(planet.connections[i].owner == this.me) continue;
-		enemytroops += Math.max(this.const.emptyAmount, planet.connections[i].shipCount[Fraction.Player]);
+		enemytroops += Math.max(this.const.emptyAmount, this.const.neighbourTroopEstimation * planet.connections[i].shipCount[Fraction.Player]);
 	}
 
 	return (enemytroops - mytroops);
 }
 
 Planets.Skynet.prototype.getDebug = function(planet) {
+	var str = "";
+	if(this.hash(planet) in this.a_targets)
+		str += " AT ";
+	if(this.hash(planet) in this.i_targets)
+		str += " IT "
 	if(this.core.indexOf(planet) != -1)
-		return "Core Planet";
+		return str + "Core Planet";
 	if(this.border.indexOf(planet) != -1)
-		return "Border (" + this.getRequiredShips(planet) + ")" + ((this.in_need.indexOf(planet) == -1)? 'OK' : 'UP');
+		return str + "Border (" + this.getRequiredShips(planet) + ")" + ((this.in_need.indexOf(planet) == -1)? 'OK' : 'UP');
 
-	return "Unknown Area";
+	return str + "Unknown Area";
 }
 
