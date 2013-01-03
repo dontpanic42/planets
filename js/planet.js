@@ -25,41 +25,82 @@ var Keys = {
 	DOWN : 38
 };
 
-//Time in ms it takes to change the planet ownership.
-var ownershipChangeRate = 10000;
-//Time in ms to spawn new ships.
-var planetSpawnRate = 20000;
-//If mor than planetSpawnMaxPresent ships of a fraction
-//are in orbit, stop spawning (overpopulation)
-var planetSpawnMaxPresent = 12;
+// var planetSpawnMaxPresent = 12;
+
+Planets.const = {
+
+	/********* GAME CONSTANTS ********/
+
+	//Time in ms it takes to change the planet ownership.
+	planetOwnerChangeRate : 	10000,
+	//Time in ms to spawn new ships.
+	planetSpawnRate : 			20000,
+	//If mor than planetSpawnMaxPresent ships of a fraction
+	//are in orbit, stop spawning (overpopulation)
+	planetMaxSpawnPresent : 	12,
+	//Basevalue for ship speed
+	shipBaseSpeed : 			70,
+	//Random addition (0...n) to shipBaseSpeed
+	shipRandomSpeed : 			30,
+	//Time in ms between firing
+	shipFireRate : 				4000,
+	//Max. ship helath
+	shipInitHealth : 			50,
+	//Basedamage a missile does
+	missileBaseDamage : 		10,
+	//Random addition (0..n) to missileBaseDamage
+	missileRandomDamage : 		5,
+
+	/********* COLORS ********/
+	planetForegroundColors : 	["rgb(232, 221, 203)",
+								 "rgb(205, 179, 128)",
+								 "rgb(  0, 180, 204)",
+								 "rgb(240, 180, 158)"],
+	planetConnectionColor : 	"rgba(255, 255, 255, 0.3)",
+	planetPathColor : 			"rgba(255, 255, 255, 0.8)",
+	planetDialBackground : 		"rgba(253, 253, 199, 0.2)",
+	planetGlowColor0 : 			"rgba(211, 158, 114, 0.3)",
+	planetGlowColor1 : 			"rgba(211, 158, 114, 0.0)",
+	planetCoreColor : 			"rgba(253, 253, 199, 1)",
+	shipExhaustColor : 			"rgba(255, 255, 255, 0.5)",
+	missileColor : 				"rgba(255, 255, 255, 1.0)",
+	viewportBackgroundColor : 	"rgba( 85,  98, 112, 1.0)",
+
+	/********* EnemyAI ********/
+	skynetConfig : {
+		targetRatio : 0.5,		//the targeted ratio ownShips<>enemyShips for border planets
+		emptyAmount : 2,		//the proposed enemy count for empty planets.
+		baseAmount : 3, 			//the amount of ships on non-border planets
+		maxTargets : 1,
+		targetFail : -10,
+		neighbourTroopEstimation : 0.1
+	}
+
+}
 
 var Fractions = [
 	{
 		color : "rgb(199,244,100)",
-		name  : "Player",
-		planetCount : 0
+		name  : "Player"
 	},
 	{
 		color : "rgb(255,107,107)",
-		name  : "Enemy",
-		planetCount : 0
+		name  : "Enemy"
 	},
 	{
 		color : "rgb(204,166,109)",
-		name  : "Pirates",
-		planetCount : 0
+		name  : "Pirates"
 	},
 	{
 		color : "rgb(255,255,255)",
-		name  : "Neutral",
-		planetCount : 0
+		name  : "Neutral"
 	}
 ];
 
 var Fraction = {
 	Player : 0,
-	Pirates: 2,
 	Enemy : 1,
+	Pirates: 2,
 	Neutral : 3
 };
 
@@ -496,6 +537,8 @@ Planets.Viewport = function(game, w, h) {
 	this.vw = $(window).width();	//viewport height
 	this.vh = $(window).height();	//viewport width
 
+	$('body').css('background-color', Planets.const.viewportBackgroundColor);
+
 	this.jq_bgcanvas = $('<canvas></canvas>')
 	.width(this.vw)
 	.height(this.vh)
@@ -772,7 +815,7 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	this.path = null;
 }
 // Planets.Renderable.Planet.colors = ["rgb(109,133,193)","rgb(173,116,109)","rgb(239,175,65)"];
-Planets.Renderable.Planet.colors = ["rgb(232,221,203)","rgb(205,179,128)","rgb(0,180,204)","rgb(240,180,158)"];
+Planets.Renderable.Planet.colors = Planets.const.planetForegroundColors;
 Planets.Renderable.Planet.prototype = new Planets.Renderable();
 Planets.Renderable.Planet.prototype.constructor = Planets.Renderable.Planet;
 
@@ -868,7 +911,7 @@ Planets.Renderable.Planet.prototype.checkOwnership = function() {
 			this.ownerApplicant = oneFractionIndex;
 			console.log(this.name + ": Ownership change imminent.")
 		} else {
-			if(Date.now() - this.ownerChangeStart >= ownershipChangeRate) {
+			if(Date.now() - this.ownerChangeStart >= Planets.const.planetOwnerChangeRate) {
 				this.owner = oneFractionIndex;
 				this.ownerChangeStart = null;
 				this.ownerApplicant = null;
@@ -887,9 +930,9 @@ Planets.Renderable.Planet.prototype.checkOwnership = function() {
 
 Planets.Renderable.Planet.prototype.checkSpawn = function(game) {
 	if(this.owner == Fraction.Neutral) return;
-	if(Date.now() - this.spawnTimer >= planetSpawnRate) {
+	if(Date.now() - this.spawnTimer >= Planets.const.planetSpawnRate) {
 		this.spawnTimer = Date.now();
-		if(this.shipCount[this.owner] > planetSpawnMaxPresent) return;
+		if(this.shipCount[this.owner] > Planets.const.planetSpawnMaxPresent) return;
 		this.spawnShip(game, this.owner);
 	}
 }
@@ -935,7 +978,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context, d
 	if(this.mouseOver && this.connections.length >= 0 && !this.path) {
 		context.beginPath();
 		context.lineWidth = 1;
-		context.strokeStyle = "rgba(255, 255, 255, 0.3)";
+		context.strokeStyle = Planets.const.planetConnectionColor;
 
 		for(var i = 0; i < this.connections.length; i++)
 			this.renderPath(context, this, this.connections[i]);
@@ -945,7 +988,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context, d
 	} else if(this.path) {
 		context.lineWidth = 2;
 		context.beginPath();
-		context.strokeStyle = "rgba(255, 255, 255, 0.8)";
+		context.strokeStyle = Planets.const.planetPathColor;
 
 		for(var i = 0; i < this.path.length - 1; i++)
 			this.renderPath(context, this.path[i], this.path[i+1]);
@@ -988,7 +1031,7 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 		context.lineWidth = 12;
 
 		// Selection dial background
-		context.strokeStyle = "rgba(253,253,199, 0.2)";
+		context.strokeStyle = Planets.const.planetDialBackground;
 		context.arc(x, y, r + 12, 0, PI2);
 		context.stroke();
 
@@ -1045,12 +1088,12 @@ Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context,
 
 	if(!this.grdInner) {
 		this.grdInner = context.createRadialGradient(x, y, 5, x, y, r);
-		this.grdInner.addColorStop(0, "rgba(253,253,199, 1)");
+		this.grdInner.addColorStop(0, Planets.const.planetCoreColor);
 		this.grdInner.addColorStop(1, this.color);
 
 		this.grdOuter = context.createRadialGradient(x, y, r, x, y, r << 1);
-		this.grdOuter.addColorStop(0, "rgba(211,158,114,0.3)");
-		this.grdOuter.addColorStop(1, "rgba(211,158,114,0.0)");
+		this.grdOuter.addColorStop(0, Planets.const.planetGlowColor0);
+		this.grdOuter.addColorStop(1, Planets.const.planetGlowColor1);
 	}
 
 
@@ -1084,10 +1127,10 @@ Planets.Renderable.Ship = function(planet, fraction) {
 	//This should be changed to st. that makes sense,
 	//e.g. speed increase with age/
 	//speed decrease with lower health points 
-	this.speed = this.speed + ((Math.random() * 30) | 0);
+	this.speed = Planets.const.shipBaseSpeed + ((Math.random() * Planets.const.shipRandomSpeed) | 0);
 
-	this.health = 50;
-	this.cannon = new Planets.Animation.Burst(4000, true);
+	this.health = Planets.const.shipInitHealth;
+	this.cannon = new Planets.Animation.Burst(Planets.const.shipFireRate, true);
 
 	this.enemy = null;
 }
@@ -1212,7 +1255,7 @@ Planets.Renderable.Ship.prototype.render = function(game, viewport, context, del
  	//if not in orbit or moving to target, draw the "engine exhaust"
 	if(!this.orbit || this.currentMoveTarget) {
 		context.beginPath();
-		context.fillStyle = "rgba(255, 255, 255, 0.5)";
+		context.fillStyle = Planets.const.shipExhaustColor;
 		context.arc(-2, 0, 2, 0, PI2);
 		context.fill();
 	}
@@ -1264,7 +1307,7 @@ Planets.Renderable.Missile.prototype.update = function(game, viewport, deltaTime
 	this.position.y = (this.position.y + speed * Planets.lookup.sin[this.angle | 0]);
 
 	if(distance(this.position, this.target.position) < 10 || this.target.health < 0) {
-		this.target.health -= 10 + (Math.random() * 5);
+		this.target.health -= Planets.const.missileBaseDamage + (Math.random() * Planets.const.missileRandomDamage);
 		this.finished = true;
 		Planets.Renderable.Missile.cache.retain(this);
 	}
@@ -1275,7 +1318,7 @@ Planets.Renderable.Missile.prototype.render = function(game, viewport, context, 
 	context.save();
 	context.beginPath();
 	context.lineWidth = 2;
-	context.strokeStyle = "#ffffff";
+	context.strokeStyle = Planets.const.missileColor;
  	context.translate(this.position.x, this.position.y);
     context.rotate( ((PID1024) * this.angle) );
  	context.moveTo(0, 0);
@@ -1351,15 +1394,8 @@ Planets.Skynet = function() {
 	this.a_targets = {};
 	//TODO: free i_targets when scoring ok again...
 	this.i_targets = {};
-}
 
-Planets.Skynet.prototype.const = {
-	targetRatio : 0.5,		//the targeted ratio ownShips<>enemyShips for border planets
-	emptyAmount : 2,		//the proposed enemy count for empty planets.
-	baseAmount : 3, 			//the amount of ships on non-border planets
-	maxTargets : 1,
-	targetFail : -10,
-	neighbourTroopEstimation : 0.1
+	this.const = Planets.const.skynetConfig;
 }
 
 Planets.Skynet.prototype.evaluate = function() {
