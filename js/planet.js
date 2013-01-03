@@ -1,4 +1,3 @@
-var Planets = {};
 var PI2 = Math.PI * 2;
 var PID4 = PI2 / 4;
 var PID1024 = PI2 / 1024;
@@ -18,91 +17,7 @@ var angulate = function(position1, position2) {
 	return 1024 - ((a < 0)? a + 1024 : a);
 }
 
-var Keys = {
-	LEFT : 37,
-	RIGHT : 39,
-	UP : 40,
-	DOWN : 38
-};
 
-// var planetSpawnMaxPresent = 12;
-
-Planets.const = {
-
-	/********* GAME CONSTANTS ********/
-
-	//Time in ms it takes to change the planet ownership.
-	planetOwnerChangeRate : 	10000,
-	//Time in ms to spawn new ships.
-	planetSpawnRate : 			20000,
-	//If mor than planetSpawnMaxPresent ships of a fraction
-	//are in orbit, stop spawning (overpopulation)
-	planetMaxSpawnPresent : 	12,
-	//Basevalue for ship speed
-	shipBaseSpeed : 			70,
-	//Random addition (0...n) to shipBaseSpeed
-	shipRandomSpeed : 			30,
-	//Time in ms between firing
-	shipFireRate : 				4000,
-	//Max. ship helath
-	shipInitHealth : 			50,
-	//Basedamage a missile does
-	missileBaseDamage : 		10,
-	//Random addition (0..n) to missileBaseDamage
-	missileRandomDamage : 		5,
-
-	/********* COLORS ********/
-	planetForegroundColors : 	["rgb(232, 221, 203)",
-								 "rgb(205, 179, 128)",
-								 "rgb(  0, 180, 204)",
-								 "rgb(240, 180, 158)"],
-	planetConnectionColor : 	"rgba(255, 255, 255, 0.3)",
-	planetPathColor : 			"rgba(255, 255, 255, 0.8)",
-	planetDialBackground : 		"rgba(253, 253, 199, 0.2)",
-	planetGlowColor0 : 			"rgba(211, 158, 114, 0.3)",
-	planetGlowColor1 : 			"rgba(211, 158, 114, 0.0)",
-	planetCoreColor : 			"rgba(253, 253, 199, 1)",
-	shipExhaustColor : 			"rgba(255, 255, 255, 0.5)",
-	missileColor : 				"rgba(255, 255, 255, 1.0)",
-	viewportBackgroundColor : 	"rgba( 85,  98, 112, 1.0)",
-
-	/********* EnemyAI ********/
-	skynetConfig : {
-		targetRatio : 0.5,		//the targeted ratio ownShips<>enemyShips for border planets
-		emptyAmount : 2,		//the proposed enemy count for empty planets.
-		baseAmount : 3, 			//the amount of ships on non-border planets
-		maxTargets : 1,
-		targetFail : -10,
-		neighbourTroopEstimation : 0.1
-	}
-
-}
-
-var Fractions = [
-	{
-		color : "rgb(199,244,100)",
-		name  : "Player"
-	},
-	{
-		color : "rgb(255,107,107)",
-		name  : "Enemy"
-	},
-	{
-		color : "rgb(204,166,109)",
-		name  : "Pirates"
-	},
-	{
-		color : "rgb(255,255,255)",
-		name  : "Neutral"
-	}
-];
-
-var Fraction = {
-	Player : 0,
-	Enemy : 1,
-	Pirates: 2,
-	Neutral : 3
-};
 
 /***********************************************************************
  * Glaxy Builder
@@ -193,20 +108,12 @@ Planets.Build.spawnRandom = function(game, fraction, planet) {
 }
 
 Planets.GeneratePlanetName = function() {
-	//http://de.wikipedia.org/wiki/Liste_von_Sternennamen	:-)
-	var prefix = ["Alpha", "Beta", "Zeta", "Epsilon", "Pi", "Mon", "Mir", "Psi", "Rho", "Omikron",
-				  "Sigma", "Xi", "Cor"];
-	var posfix = ["Majoris", "Minoris", "Indi", "Gamma", "Cephei", "A", "B", "C", "Ceti", "Delta",
-				  "Tauri", "Capricorni", "Lyrae"];
-	var pnames =   ["Mensae", "Pollux", "Ursae", "Leonis", "Virginis", "Draconis", "Kappa", "Coronae",
-					"Herculis", "Arae", "Pegasi", "Delphini", "Aquarii", "Orionis", "Arietis", "Librae",
-					"Beteigeuze", "Sol", "Terra"];
-
-	var name = prefix[ (Math.random() * prefix.length) | 0] + " ";
-		name+= pnames[ (Math.random() * pnames.length) | 0] + " ";
-		name+= posfix[ (Math.random() * posfix.length) | 0];
-
-	return name;
+	return Planets.const.planetNames.prefix[ 
+			(Math.random() * Planets.const.planetNames.prefix.length) | 0] + " " +
+		Planets.const.planetNames.names[
+			(Math.random() * Planets.const.planetNames.names.length) | 0] + " " +
+		Planets.const.planetNames.postfix[ 
+			(Math.random() * Planets.const.planetNames.postfix.length) | 0];
 }
 
 /***********************************************************************
@@ -407,7 +314,7 @@ Planets.Main.prototype.init = function() {
 	this.key = new Planets.Keymap(this, this.viewport);
 	this.mouse = new Planets.Mouse(this, this.viewport);
 
-	this.skynetUpdate = new Planets.Animation.Burst(500);
+	this.skynetUpdate = new Planets.Animation.Burst(Planets.const.skynetConfig.updateRate);
 
 	Planets.Build(this, this.viewport);
 
@@ -416,7 +323,7 @@ Planets.Main.prototype.init = function() {
 }
 
 Planets.Main.prototype.start = function() {
-	this.interval = setInterval(this.loop.bind(this), 15);
+	this.interval = setInterval(this.loop.bind(this), Planets.const.updateInterval);
 }
 
 Planets.Main.prototype.stop = function() {
@@ -463,9 +370,7 @@ Planets.Main.prototype.loop = function() {
 	this.viewport.handleInput(this.mouse, this.key, this.touch);
 	this.viewport.clear();
 
-	if(debug) {
-		var timerUpdateStart = Date.now();
-	}
+	if(debug) var timerUpdateStart = Date.now();
 
 	var i=0, l=this.renderList.length, bgl = this.bgRenderList.length;
 
@@ -561,8 +466,8 @@ Planets.Viewport = function(game, w, h) {
 
 	this.offset = {x: 0, y: 0};
 
-	this.moveSpeed = 4;		// Screen movement speed
-	this.moveCorner = 30;	// Hot corner size
+	this.moveSpeed = Planets.const.scrollSpeed;		// Screen movement speed
+	this.moveCorner = Planets.const.hotCornerSize;	// Hot corner size
 
 	this.bgUpdated = false;
 }
@@ -801,7 +706,6 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	this.ownerChangeStart = null;
 	this.ownerApplicant = null;
 	this.owner = Fraction.Neutral;
-	Fractions[this.owner].planetCount++;
 	this.spawnTimer = null;
 
 	//Animation
@@ -1047,8 +951,8 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 
 		// Draw text
 		context.beginPath();
-		context.fillStyle = "#ffffff";
-		context.strokeStyle = "#000000";
+		context.fillStyle = Planets.const.planetNameFillColor;
+		context.strokeStyle = Planets.const.planetNameBorderColor;
 		context.lineWidth = 1;
 		context.font = 'bold 16pt Verdana';
 		var str = this.shipSelected[Fraction.Player] + "/" + this.shipCount[Fraction.Player];
@@ -1060,8 +964,8 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 	}
 
 	//Draw planet name
-	context.fillStyle = "#ffffff";
-	context.strokeStyle = "#000000";
+	context.fillStyle = Planets.const.planetNameFillColor;
+	context.strokeStyle = Planets.const.planetNameBorderColor;
 	context.lineWidth = 1;
 	context.font = 'bold 16pt Verdana';
 	var dim = context.measureText(this.name);
@@ -1105,7 +1009,7 @@ Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context,
 
 	//circle & inner
 	context.beginPath();
-	context.lineStyle = "#000000";
+	context.lineStyle = Planets.const.planetBorderColor;
 	context.lineWidth = 4;
 	context.fillStyle = this.grdInner;
 	context.arc(x, y, r, 0, PI2);
@@ -1123,10 +1027,7 @@ Planets.Renderable.Ship = function(planet, fraction) {
 	this.position = {x: 0, y: 0};
 	this.currentMoveTarget = null;
 	this.fraction = fraction;
-	//Randomize base speed to spread ship distribution.
-	//This should be changed to st. that makes sense,
-	//e.g. speed increase with age/
-	//speed decrease with lower health points 
+
 	this.speed = Planets.const.shipBaseSpeed + ((Math.random() * Planets.const.shipRandomSpeed) | 0);
 
 	this.health = Planets.const.shipInitHealth;
@@ -1144,7 +1045,7 @@ Planets.Renderable.Ship.prototype.init = function() {
 	//Angle between the ship and the planet
 	this.angle = (Math.random() * (1024)) | 0;
 	//Distance between the ship and the planet surface
-	this.offset = ((Math.random() * (30 - 10) ) + 10) | 0;
+	this.offset = ((Math.random() * (Planets.const.shipOrbitOffsetMax - Planets.const.shipOrbitOffsetMin) ) + Planets.const.shipOrbitOffsetMin) | 0;
 
 	this.pIndex = 0; //index used in the planet's shiplist, not to be changed.
 	this.renderIndex = this.bgRenderIndex = 0; //used in the main loop, not to be changed.
@@ -1268,7 +1169,7 @@ Planets.Renderable.Ship.prototype.render = function(game, viewport, context, del
  **********************************************************************/
 
 Planets.Renderable.Missile = function(origin, target) { 
-	this.speed = 80;
+	this.speed = Planets.const.missileSpeed;
 	this.angle = 0;
 	this.position = {x: origin.position.x, y: origin.position.y};
 	this.target = target;

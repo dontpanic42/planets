@@ -3,6 +3,12 @@ var Planets = {};
 
 Planets.const = {
 
+	//idle time between update+render
+	updateInterval : 			15,
+	//size of the "hot corners" (for scrolling)
+	hotCornerSize : 			30,
+	//scroll speed
+	scrollSpeed : 				4,
 	/********* GAME CONSTANTS ********/
 
 	//Time in ms it takes to change the planet ownership.
@@ -20,10 +26,36 @@ Planets.const = {
 	shipFireRate : 				4000,
 	//Max. ship helath
 	shipInitHealth : 			50,
+	//The lowest possible orbit
+	shipOrbitOffsetMin : 		10,
+	//The highest possible orbit
+	shipOrbitOffsetMax : 		30,
 	//Basedamage a missile does
 	missileBaseDamage : 		10,
 	//Random addition (0..n) to missileBaseDamage
 	missileRandomDamage : 		5,
+	//The missiles speed
+	missileSpeed : 				80,
+
+	/********* EnemyAI ********/
+	skynetConfig : {
+		//rate in ms in which the ai is called to update
+		updateRate : 			500,
+		//the targeted ratio ownShips<>enemyShips for border planets
+		targetRatio : 			0.5,	
+		//the proposed enemy count for empty planets	
+		emptyAmount : 			2,	
+		//the minimal amount of ships on non-border planets	
+		baseAmount : 			3, 		
+		//maximum number of targets to attack at the same time
+		maxTargets : 			1,
+		//retreat if enemy has to many ships
+		targetFail : 			-10,
+		//used to include the targets enemy-neighbour-troops 
+		//into the attack-risk assessment
+		//lower: more likely to attack / more aggressive. 
+		neighbourTroopEstimation : 0.1
+	},
 
 	/********* COLORS ********/
 	planetForegroundColors : 	["rgb(232, 221, 203)",
@@ -36,18 +68,67 @@ Planets.const = {
 	planetGlowColor0 : 			"rgba(211, 158, 114, 0.3)",
 	planetGlowColor1 : 			"rgba(211, 158, 114, 0.0)",
 	planetCoreColor : 			"rgba(253, 253, 199, 1)",
+	planetNameFillColor : 		 "rgb(255, 255, 255)",
+	planetNameBorderColor : 	 "rgb(  0,   0,   0)",
+	planetBorderColor : 		 "rgb(  0,   0,   0)",
 	shipExhaustColor : 			"rgba(255, 255, 255, 0.5)",
 	missileColor : 				"rgba(255, 255, 255, 1.0)",
 	viewportBackgroundColor : 	"rgba( 85,  98, 112, 1.0)",
 
-	/********* EnemyAI ********/
-	skynetConfig : {
-		targetRatio : 0.5,		//the targeted ratio ownShips<>enemyShips for border planets
-		emptyAmount : 2,		//the proposed enemy count for empty planets.
-		baseAmount : 3, 			//the amount of ships on non-border planets
-		maxTargets : 1,
-		targetFail : -10,
-		neighbourTroopEstimation : 0.1
+
+	//http://de.wikipedia.org/wiki/Liste_von_Sternennamen	;-)
+	planetNames : {
+		prefix: [
+					"Alpha", 
+					"Beta", 
+					"Zeta", 
+					"Epsilon", 
+					"Pi", 
+					"Mon", 
+					"Mir", 
+					"Psi", 
+					"Rho", 
+					"Omikron",
+				  	"Sigma", 
+				  	"Xi", 
+				  	"Cor"
+				],
+		postfix:[
+					"Majoris", 
+					"Minoris", 
+					"Indi", 
+					"Gamma", 
+					"Cephei", 
+					"A", 
+					"B", 
+					"C", 
+					"Ceti", 
+					"Delta",
+					"Tauri", 
+				  	"Capricorni", 
+				  	"Lyrae"
+				],
+		names : [
+					"Mensae", 
+					"Pollux", 
+					"Ursae", 
+					"Leonis", 
+					"Virginis", 
+					"Draconis", 
+					"Kappa", 
+					"Coronae",
+					"Herculis", 
+					"Arae", 
+					"Pegasi", 
+					"Delphini", 
+					"Aquarii", 
+					"Orionis", 
+					"Arietis", 
+					"Librae",
+					"Beteigeuze", 
+					"Sol", 
+					"Terra"
+				]
 	}
 
 }
@@ -78,4 +159,12 @@ var Fraction = {
 	Enemy : 1,
 	Pirates: 2,
 	Neutral : 3
+};
+
+
+var Keys = {
+	LEFT : 37,
+	RIGHT : 39,
+	UP : 40,
+	DOWN : 38
 };
