@@ -6,6 +6,7 @@ var PID180 = 180 / (Math.PI);
 
 var debug = true;
 var debugAI = false;
+var touchSupport = (location.hash == "#touch")? true : ('ontouchstart' in document.documentElement);
 
 var distance  = function(position1, position2) {
 	var x2 = position2.x,
@@ -118,19 +119,13 @@ Planets.Build = function(game, viewport) {
 				cache[x-1][y].connect(o);
 			}
 
-			// o.spawnShip(game, Fraction.Player);
-			// o.spawnShip(game, Fraction.Player);
-			// o.spawnShip(game, Fraction.Player);
-			// o.spawnShip(game, Fraction.Player);
-			// o.spawnShip(game, Fraction.Enemy);
-			// o.spawnShip(game, Fraction.Enemy);
-
 
 		}
 	}
 
 	if(first && last) {
 
+			//Spawn player in the top left corner
 			first.owner = Fraction.Player;
 			Planets.Build.spawnRandom(game, Fraction.Player, first);
 			for(var i = 0; i < first.connections.length; i++) {
@@ -138,6 +133,7 @@ Planets.Build = function(game, viewport) {
 				Planets.Build.spawnRandom(game, Fraction.Player, first.connections[i]);
 			}
 
+			//Spawn enemy in the bottom right corner
 			last.owner = Fraction.Enemy;
 			Planets.Build.spawnRandom(game, Fraction.Enemy, last);
 			game.skynet.addPlanet(last);
@@ -164,7 +160,7 @@ Planets.GeneratePlanetName = function() {
 				  "Tauri", "Capricorni", "Lyrae"];
 	var pnames =   ["Mensae", "Pollux", "Ursae", "Leonis", "Virginis", "Draconis", "Kappa", "Coronae",
 					"Herculis", "Arae", "Pegasi", "Delphini", "Aquarii", "Orionis", "Arietis", "Librae",
-					"Beteigeuze", "Sol"];
+					"Beteigeuze", "Sol", "Terra"];
 
 	var name = prefix[ (Math.random() * prefix.length) | 0] + " ";
 		name+= pnames[ (Math.random() * pnames.length) | 0] + " ";
@@ -368,8 +364,10 @@ Planets.Main.prototype.init = function() {
 	this.skynet = new Planets.Skynet();
 
 	this.viewport = new Planets.Viewport(this, this.w, this.h);
-	this.key = new Planets.Keymap();
-	this.mouse = new Planets.Mouse(this, this.viewport);
+	this.key = new Planets.Keymap(this, this.viewport);
+	this.mouse = (touchSupport) ? 
+		new Planets.Touch(this, this.viewport) : 
+		new Planets.Mouse(this, this.viewport);
 
 	this.skynetUpdate = new Planets.Animation.Burst(500);
 
@@ -377,6 +375,8 @@ Planets.Main.prototype.init = function() {
 
 	Planets.Renderable.Missile.cache = new Planets.Renderable.MissileCache();
 	this.push(Planets.Renderable.Missile.cache);
+
+	console.log("Touch emulation: ", (touchSupport)? 'yes' : 'no');
 }
 
 Planets.Main.prototype.start = function() {
@@ -424,7 +424,7 @@ Planets.Main.prototype.loop = function() {
 	this.lastUpdate = Date.now();
 	var gameTime  = this.lastUpdate - this.firstUpdate;
 
-	this.viewport.handleInput(this.mouse, this.key);
+	this.viewport.handleInput(this.mouse, this.key, this.touch);
 	this.viewport.clear();
 
 	if(debug) {
@@ -571,7 +571,7 @@ Planets.Viewport.prototype.rectVisible = function(x1, y1, x2, y2) {
 	return true;
 }
 
-Planets.Viewport.prototype.handleInput = function(mouse, keyboard) {
+Planets.Viewport.prototype.handleInput = function(mouse, keyboard, touch) {
 	this.bgUpdated = false;
 	this.handleMouse(mouse);
 	this.handleKeydown(keyboard);
@@ -587,6 +587,15 @@ Planets.Viewport.prototype.handleMouse = function(mouse) {
 		this.moveLeft();
 	if(mouse.absolute.x > this.vw - this.moveCorner) 
 		this.moveRight();
+}
+
+Planets.Viewport.prototype.handleGestures = function(touch) {
+	var off;
+	if((off = touch.getOffset()) != null) {
+		this.offset.x += off.x;
+		this.offset.y += off.y;
+		this.bgUpdated = true;
+	}
 }
 
 // Handle viewport offset when arrow-keys are pressed
@@ -627,6 +636,109 @@ Planets.Viewport.prototype.moveRight = function() {
 }
 
 /***********************************************************************
+ * Touch
+ **********************************************************************/
+
+Planets.Touch = function(game, viewport) {
+	viewport.jq_canvas.on('drag dragstart dragend tap transform transformstart transformend', this.handleGesturesInput.bind(this));
+	this.offset = { x: 0, y: 0 };
+	this.start = null;
+
+	this.viewport = viewport;
+	this.game = game;
+
+	this.absolute = { x: 0, y : 0};
+	this.position = { x: 0, y : 0};
+
+	this.left = viewport.jq_canvas.offset().left;
+	this.top  = viewport.jq_canvas.offset().top;
+
+	this.currentDown = null;	// Element on which the mousebutton was pressed down
+	this.down = false;
+
+	this.deltaLast = 0;
+	this.delta = 0;
+}
+
+Planets.Touch.prototype.handleGesturesInput = function(e) {
+	e.preventDefault();
+	var self = this;
+	switch(e.type) {
+		case "dragstart" : {
+			this.handlePositioning(e);
+			this.down = true;
+			this.currentDown = this.game.selected;
+			return;
+		}
+		case "drag" : {
+			this.handlePositioning(e);
+			return;
+		}
+		case "dragend" : {
+			this.clearPositioning();
+			this.down = false;
+			return;
+		}
+		case "hold" : {
+			this.handlePositioning(e);
+			this.down = true;
+			return;
+		}
+		case "release" : {
+			this.clearPositioning();
+			this.down = false;
+			return;
+		}
+		case "tap" : {
+			this.handlePositioning(e);
+			this.down = false;
+			return;
+		}
+		case "transform" : {
+			this.handleDelta(e);
+			return;
+		}
+		case "transformstart" : {
+			this.delta = this.deltaLast = 0;
+			return;
+		}
+		case "transformend" : {
+			this.delta = this.deltaLast = 0;
+			return;
+		}
+	}
+}
+
+Planets.Touch.prototype.getClearDelta = function() { 
+	this.deltaLast = this.delta;
+	return this.delta | 0;
+}
+
+Planets.Touch.prototype.handleDelta = function(event) {
+	//this.delta = event.scale - this.deltaLast;
+	// var tmp = (event.scale < 1)? -(event.scale * 10) : event.scale;
+	// this.delta = tmp;//tmp - this.deltaLast;
+	// console.log(this.delta);
+
+	this.delta = (event.scale < 1)? - 1 : 1;
+	console.log(event.scale);
+}
+
+Planets.Touch.prototype.handlePositioning = function(event) {
+	if(!event.position) return;
+	var p = (event.position[0])? event.position[0] : event.position;
+	this.absolute.x = p.x - this.left;
+	this.absolute.y = p.y - this.top;
+	this.position.x = this.absolute.x - this.viewport.offset.x;
+	this.position.y = this.absolute.y - this.viewport.offset.y;
+}
+
+Planets.Touch.prototype.clearPositioning = function() {
+	this.absolute = {x: 32, y : 32};
+	this.position.x = this.absolute.x - this.viewport.offset.x;
+	this.position.y = this.absolute.y - this.viewport.offset.y;
+}
+/***********************************************************************
  * Mouse
  **********************************************************************/
 
@@ -638,6 +750,7 @@ Planets.Mouse = function(game, viewport) {
 	viewport.jq_canvas.mousewheel(this.wheelHandler.bind(this));
 	viewport.jq_canvas.bind('mousedown', this.downHandler.bind(this));
 	viewport.jq_canvas.bind('mouseup', this.upHandler.bind(this));
+
 
 	//position including offset calculation
 	this.position = {x: 0, y: 0};
@@ -690,7 +803,7 @@ Planets.Mouse.prototype.upHandler = function(event) {
  * Key bindings
  **********************************************************************/
 
-Planets.Keymap = function() { 
+Planets.Keymap = function(game, viewport) { 
 	this.keymap = new Array(128);
 	for(var i = 0; i < 128; i++)
 		this.keymap[i] = false;
@@ -708,6 +821,7 @@ Planets.Keymap.prototype.handlerUp = function(event) {
 	event.preventDefault();
 	this.keymap[event.keyCode] = false;
 }
+
 
 /***********************************************************************
  * Renderable
@@ -757,6 +871,7 @@ Planets.Renderable.Planet = function(position, radius, name) {
 
 	//Animation
 	this.ownerAnimation = new Planets.Animation.Linear(0.2, 1.0, true, 1);
+	this.grdInner = this.grdOuter = null;
 
 	//Some object indices
 	this.renderIndex = this.bgRenderIndex = 0;
@@ -1002,11 +1117,11 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 		context.lineWidth = 1;
 		context.font = 'bold 16pt Verdana';
 		var str = this.shipSelected[Fraction.Player] + "/" + this.shipCount[Fraction.Player];
-		var dim = context.measureText(str);
+		var dim = (context.measureText(str).width / 2) | 0;
 		context.textBaseline = "middle";
 
-		context.fillText(str, x - (dim.width/2), y);
-		context.strokeText(str, x - (dim.width/2), y);
+		context.fillText(str, x - dim, y);
+		context.strokeText(str, x - dim, y);
 	}
 
 	//Draw planet name
@@ -1036,17 +1151,20 @@ Planets.Renderable.Planet.prototype.renderPath = function(context, origin, targe
 Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context, deltaTime, gameTime) {
 	var x = this.position.x, y = this.position.y, r = this.radius;
 
-	var grdInner = context.createRadialGradient(x, y, 5, x, y, r);
-	grdInner.addColorStop(0,"rgba(253,253,199, 1)");
-	grdInner.addColorStop(1,this.color);
-	//inner gradient
-	var grdOuter = context.createRadialGradient(x, y, r, x, y, r << 1);
-	grdOuter.addColorStop(0, "rgba(211,158,114,0.3)");
-	grdOuter.addColorStop(1, "rgba(211,158,114,0.0)");
+	if(!this.grdInner) {
+		this.grdInner = context.createRadialGradient(x, y, 5, x, y, r);
+		this.grdInner.addColorStop(0, "rgba(253,253,199, 1)");
+		this.grdInner.addColorStop(1, this.color);
+
+		this.grdOuter = context.createRadialGradient(x, y, r, x, y, r << 1);
+		this.grdOuter.addColorStop(0, "rgba(211,158,114,0.3)");
+		this.grdOuter.addColorStop(1, "rgba(211,158,114,0.0)");
+	}
+
 
 	//glow
 	context.beginPath();
-	context.fillStyle = grdOuter;
+	context.fillStyle = this.grdOuter;
 	context.arc(x, y, r << 1, 0, PI2);
 	context.fill();
 
@@ -1054,7 +1172,7 @@ Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context,
 	context.beginPath();
 	context.lineStyle = "#000000";
 	context.lineWidth = 4;
-	context.fillStyle = grdInner;
+	context.fillStyle = this.grdInner;
 	context.arc(x, y, r, 0, PI2);
 	context.stroke();
 	context.fill();
