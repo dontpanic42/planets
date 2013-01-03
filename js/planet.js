@@ -5,6 +5,7 @@ var PID1024 = PI2 / 1024;
 var PID180 = 180 / (Math.PI);
 
 var debug = true;
+var debugAI = false;
 
 var distance  = function(position1, position2) {
 	var x2 = position2.x,
@@ -34,12 +35,12 @@ var planetSpawnMaxPresent = 12;
 
 var Fractions = [
 	{
-		color : "rgb(15,183,209)",
+		color : "rgb(199,244,100)",
 		name  : "Player",
 		planetCount : 0
 	},
 	{
-		color : "rgb(255,128,154)",
+		color : "rgb(255,107,107)",
 		name  : "Enemy",
 		planetCount : 0
 	},
@@ -763,7 +764,8 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	//Properties of path preview
 	this.path = null;
 }
-Planets.Renderable.Planet.colors = ["rgb(109,133,193)","rgb(173,116,109)","rgb(239,175,65)"];
+// Planets.Renderable.Planet.colors = ["rgb(109,133,193)","rgb(173,116,109)","rgb(239,175,65)"];
+Planets.Renderable.Planet.colors = ["rgb(232,221,203)","rgb(205,179,128)","rgb(0,180,204)","rgb(240,180,158)"];
 Planets.Renderable.Planet.prototype = new Planets.Renderable();
 Planets.Renderable.Planet.prototype.constructor = Planets.Renderable.Planet;
 
@@ -944,7 +946,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context, d
 		context.stroke();
 	}
 
-	if(debug) { //Print skynet prognosted risk.
+	if(debugAI) { //Print skynet prognosted risk.
 		context.beginPath();
 		context.fillStyle = "#ffffff";
 		context.font = "10pt Verdana";
@@ -1083,7 +1085,7 @@ Planets.Renderable.Ship = function(planet, fraction) {
 Planets.Renderable.Ship.prototype = new Planets.Renderable();
 Planets.Renderable.Ship.prototype.constructor = Planets.Renderable.Ship;
 Planets.Renderable.Ship.prototype.orbit = null;
-Planets.Renderable.Ship.prototype.speed = 120;
+Planets.Renderable.Ship.prototype.speed = 70;
 
 Planets.Renderable.Ship.prototype.init = function() {
 	//Angle between the ship and the planet
