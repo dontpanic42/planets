@@ -6,7 +6,6 @@ var PID180 = 180 / (Math.PI);
 
 var debug = true;
 var debugAI = false;
-var touchSupport = (location.hash == "#touch")? true : ('ontouchstart' in document.documentElement);
 
 var distance  = function(position1, position2) {
 	var x2 = position2.x,
@@ -365,9 +364,7 @@ Planets.Main.prototype.init = function() {
 
 	this.viewport = new Planets.Viewport(this, this.w, this.h);
 	this.key = new Planets.Keymap(this, this.viewport);
-	this.mouse = (touchSupport) ? 
-		new Planets.Touch(this, this.viewport) : 
-		new Planets.Mouse(this, this.viewport);
+	this.mouse = new Planets.Mouse(this, this.viewport);
 
 	this.skynetUpdate = new Planets.Animation.Burst(500);
 
@@ -375,8 +372,6 @@ Planets.Main.prototype.init = function() {
 
 	Planets.Renderable.Missile.cache = new Planets.Renderable.MissileCache();
 	this.push(Planets.Renderable.Missile.cache);
-
-	console.log("Touch emulation: ", (touchSupport)? 'yes' : 'no');
 }
 
 Planets.Main.prototype.start = function() {
@@ -635,109 +630,6 @@ Planets.Viewport.prototype.moveRight = function() {
 			this.offset.x = (this.vw - this.w);
 }
 
-/***********************************************************************
- * Touch
- **********************************************************************/
-
-Planets.Touch = function(game, viewport) {
-	viewport.jq_canvas.on('drag dragstart dragend tap transform transformstart transformend', this.handleGesturesInput.bind(this));
-	this.offset = { x: 0, y: 0 };
-	this.start = null;
-
-	this.viewport = viewport;
-	this.game = game;
-
-	this.absolute = { x: 0, y : 0};
-	this.position = { x: 0, y : 0};
-
-	this.left = viewport.jq_canvas.offset().left;
-	this.top  = viewport.jq_canvas.offset().top;
-
-	this.currentDown = null;	// Element on which the mousebutton was pressed down
-	this.down = false;
-
-	this.deltaLast = 0;
-	this.delta = 0;
-}
-
-Planets.Touch.prototype.handleGesturesInput = function(e) {
-	e.preventDefault();
-	var self = this;
-	switch(e.type) {
-		case "dragstart" : {
-			this.handlePositioning(e);
-			this.down = true;
-			this.currentDown = this.game.selected;
-			return;
-		}
-		case "drag" : {
-			this.handlePositioning(e);
-			return;
-		}
-		case "dragend" : {
-			this.clearPositioning();
-			this.down = false;
-			return;
-		}
-		case "hold" : {
-			this.handlePositioning(e);
-			this.down = true;
-			return;
-		}
-		case "release" : {
-			this.clearPositioning();
-			this.down = false;
-			return;
-		}
-		case "tap" : {
-			this.handlePositioning(e);
-			this.down = false;
-			return;
-		}
-		case "transform" : {
-			this.handleDelta(e);
-			return;
-		}
-		case "transformstart" : {
-			this.delta = this.deltaLast = 0;
-			return;
-		}
-		case "transformend" : {
-			this.delta = this.deltaLast = 0;
-			return;
-		}
-	}
-}
-
-Planets.Touch.prototype.getClearDelta = function() { 
-	this.deltaLast = this.delta;
-	return this.delta | 0;
-}
-
-Planets.Touch.prototype.handleDelta = function(event) {
-	//this.delta = event.scale - this.deltaLast;
-	// var tmp = (event.scale < 1)? -(event.scale * 10) : event.scale;
-	// this.delta = tmp;//tmp - this.deltaLast;
-	// console.log(this.delta);
-
-	this.delta = (event.scale < 1)? - 1 : 1;
-	console.log(event.scale);
-}
-
-Planets.Touch.prototype.handlePositioning = function(event) {
-	if(!event.position) return;
-	var p = (event.position[0])? event.position[0] : event.position;
-	this.absolute.x = p.x - this.left;
-	this.absolute.y = p.y - this.top;
-	this.position.x = this.absolute.x - this.viewport.offset.x;
-	this.position.y = this.absolute.y - this.viewport.offset.y;
-}
-
-Planets.Touch.prototype.clearPositioning = function() {
-	this.absolute = {x: 32, y : 32};
-	this.position.x = this.absolute.x - this.viewport.offset.x;
-	this.position.y = this.absolute.y - this.viewport.offset.y;
-}
 /***********************************************************************
  * Mouse
  **********************************************************************/
