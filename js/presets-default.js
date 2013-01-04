@@ -17,7 +17,7 @@ Planets.const = {
 	planetSpawnRate : 			20000,
 	//If mor than planetSpawnMaxPresent ships of a fraction
 	//are in orbit, stop spawning (overpopulation)
-	planetMaxSpawnPresent : 	12,
+	planetSpawnMaxPresent : 	12,
 	//Basevalue for ship speed
 	shipBaseSpeed : 			70,
 	//Random addition (0...n) to shipBaseSpeed

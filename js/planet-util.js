@@ -62,12 +62,12 @@ var Store = {
 			},
 
 			remove : function(element) {
-				var pi;
-				if(!element.storeIndex || !(pi = element.storeIndex[this.uid])) {
+				if(!element.storeIndex || !(this.uid in element.storeIndex)  || element.storeIndex[this.uid] == -1) {
 					console.log("Store element never added to store?");
 					return;
 				}
 
+				var pi = element.storeIndex[this.uid];
 				element.storeIndex[this.uid] = -1;
 				this[pi] = null;
 				this.slots.push(pi);

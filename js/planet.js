@@ -483,7 +483,7 @@ Planets.Renderable.Planet.prototype.checkSpawn = function(game) {
 	if(this.owner == Fraction.Neutral) return;
 	if(Date.now() - this.spawnTimer >= Planets.const.planetSpawnRate) {
 		this.spawnTimer = Date.now();
-		if(this.ships[this.owner].size > Planets.const.planetSpawnMaxPresent) return;
+		if(this.ships[this.owner].size >= Planets.const.planetSpawnMaxPresent) return;
 		this.spawnShip(game, this.owner);
 	}
 }
@@ -518,6 +518,8 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 
 	this.checkOwnership();
 	this.checkSpawn(game);
+
+	DebugOutput.write("#PS", this.ships[Fraction.Player].size);
 }
 
 Planets.Renderable.Planet.prototype.render = function(game, viewport, context, deltaTime, gameTime) {
