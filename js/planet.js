@@ -6,19 +6,6 @@ var PID180 = 180 / (Math.PI);
 var debug = true;
 var debugAI = false;
 
-var distance  = function(position1, position2) {
-	var x2 = position2.x,
-		y2 = position2.y;
-	return Math.sqrt((x2 -= position1.x) * x2 + (y2 -= position1.y) * y2);
-}
-
-var angulate = function(position1, position2) {
-	var a = Math.atan2(-(position2.y-position1.y), (position2.x-position1.x)) * (1024/PI2);
-	return 1024 - ((a < 0)? a + 1024 : a);
-}
-
-
-
 /***********************************************************************
  * Glaxy Builder
  **********************************************************************/
@@ -47,8 +34,10 @@ Planets.Build = function(game, viewport) {
 			rndy = ((y * avgGapY) - (rndGapY/2) + (Math.random() * rndGapY)) | 0;
 			rnds = (avgSize - (rndSize / 2) + (Math.random() * rndSize)) | 0;
 			o = new Planets.Renderable.Planet({x: rndx, y: rndy}, rnds, Planets.GeneratePlanetName());
-			game.push(o);
-			game.bgPush(o);
+			//game.push(o);
+			//game.bgPush(o);
+			game.fxLayer.include(o);
+			game.bgLayer.include(o, "bgUpdate", "bgRender");
 
 			if(x == 1 && y == 1) first = o;
 			if(x == resX-1 && y == resY-1) last = o;
@@ -267,34 +256,17 @@ Planets.Animation.Burst.prototype.isFinished = function() {
  **********************************************************************/
 
 Planets.Main = function(w, h) { 
-	this.renderList = [];
-	this.slotList = [];
-	this.bgRenderList = [];
-	this.bgSlotList = [];
+
+	this.bgLayer = RenderLayer.create();
+	this.fgLayer = RenderLayer.create();
+	this.fxLayer = RenderLayer.create();
 
 	this.w = w; this.h = h;			//logical height/width
-
 
 	this.interval;
 	this.lastUpdate = this.firstUpdate = Date.now();
 
-
 	this.selected = null;
-
-	if(debug) {
-		this.fpsTimer = Date.now();
-		this.renderTime = 0;
-		this.updateTime = 0;
-		this.updateCounter = 0;
-
-		this.lastUpdateFPS = 0;
-		this.lastRenderFPS = 0;
-		this.lastFullFPS = 0;
-
-		this.potentialFPS = 0;
-
-		this.fps = 0;
-	}
 }
 
 Planets.Main.prototype.init = function() {
@@ -319,7 +291,8 @@ Planets.Main.prototype.init = function() {
 	Planets.Build(this, this.viewport);
 
 	Planets.Renderable.Missile.cache = new Planets.Renderable.MissileCache();
-	this.push(Planets.Renderable.Missile.cache);
+
+	this.fxLayer.include(Planets.Renderable.Missile.cache);
 }
 
 Planets.Main.prototype.start = function() {
@@ -328,36 +301,6 @@ Planets.Main.prototype.start = function() {
 
 Planets.Main.prototype.stop = function() {
 	clearInterval(this.interval);
-}
-
-Planets.Main.prototype.push = function(obj) {
-	if(this.slotList.length != 0) {
-		obj.renderIndex = this.slotList.pop();
-		this.renderList[obj.renderIndex] = obj;
-		return;
-	}
-	obj.renderIndex = this.renderList.length;
-	this.renderList[obj.renderIndex] = obj;
-}
-
-Planets.Main.prototype.bgPush = function(obj) {
-	if(this.bgSlotList.length != 0) {
-		obj.bgRenderIndex = this.bgSlotList.pop();
-		this.bgRenderList[obj.bgRenderIndex] = obj;
-		return;
-	}
-	obj.bgRenderIndex = this.bgRenderList.length;
-	this.bgRenderList[obj.bgRenderIndex] = obj;
-}
-
-Planets.Main.prototype.remove = function(obj) {
-	this.renderList[obj.renderIndex] = null;
-	this.slotList.push(obj.renderIndex);
-}
-
-Planets.Main.prototype.bgRemove = function(obj) {
-	this.bgRenderList[obj.bgRenderIndex] = null;
-	this.bgSlotList.push(obj.bgRenderIndex);
 }
 
 Planets.Main.prototype.loop = function() {
@@ -370,296 +313,30 @@ Planets.Main.prototype.loop = function() {
 	this.viewport.handleInput(this.mouse, this.key, this.touch);
 	this.viewport.clear();
 
-	if(debug) var timerUpdateStart = Date.now();
-
-	var i=0, l=this.renderList.length, bgl = this.bgRenderList.length;
+	if(debug) DebugOutput.fpsTimer.updateStart();
 
 	if(this.skynetUpdate.next(deltaTime))
 		this.skynet.evaluate();
 
-	//always update foreground
-	for(i = 0; i < l; i++)
-		if(this.renderList[i] != null) 
-			this.renderList[i].update(this, this.viewport, deltaTime, gameTime);
+	this.fxLayer.update(this, this.viewport, deltaTime, gameTime);
+	this.bgLayer.update(this, this.viewport, deltaTime, gameTime);
+	this.fgLayer.update(this, this.viewport, deltaTime, gameTime);
 
-	//update background if needed
-	if(this.viewport.bgUpdated)
-		for(i = 0; i < bgl; i++)
-			if(this.bgRenderList[i] != null) 
-				this.bgRenderList[i].bgUpdate(this, this.viewport, deltaTime, gameTime);
 
 	if(debug) {
-		this.updateTime += (Date.now() - timerUpdateStart);
-		var timerRenderStart = Date.now();
+		DebugOutput.fpsTimer.updateEnd();
+		DebugOutput.fpsTimer.renderStart();
 	}
 
-	//always render foreground
-	for(i = 0; i < l; i++)
-		if(this.renderList[i] != null)
-			this.renderList[i].render(this, this.viewport, this.viewport.context, deltaTime, gameTime);
-
-	//render background as needed
-	if(this.viewport.bgUpdated)
-		for(i = 0; i < bgl; i++)
-			if(this.bgRenderList[i] != null)
-				this.bgRenderList[i].bgRender(this, this.viewport, this.viewport.bgcontext, deltaTime, gameTime);
+	this.fxLayer.render(this, this.viewport, this.viewport.context, deltaTime, gameTime).invalidate();
+	this.fgLayer.render(this, this.viewport, this.viewport.context, deltaTime, gameTime).invalidate();
+	this.bgLayer.render(this, this.viewport, this.viewport.bgcontext, deltaTime, gameTime);
 
 	if(debug) {
-		this.renderTime += Date.now() - timerRenderStart;
-		this.updateCounter++;
-
-		if(Date.now() - this.fpsTimer > 1000) {
-			this.fpsTimer = Date.now();
-			this.lastUpdateFPS = Math.round(this.updateTime / this.updateCounter);
-			this.lastRenderFPS = Math.round(this.renderTime / this.updateCounter);
-			this.lastFullFPS = Math.round((this.renderTime + this.updateTime) / this.updateCounter);
-			this.fps = this.updateCounter;
-			this.updateCounter = 0;
-			this.updateTime = this.renderTime = 0;
-			this.potentialFPS = Math.round(1000 / this.lastFullFPS);
-		}
-
-		this.viewport.writeDebug(
-			this.lastUpdateFPS,
-			this.lastRenderFPS,
-			this.lastFullFPS,
-			this.fps,
-			this.potentialFPS
-			);
+		DebugOutput.fpsTimer.renderEnd();
+		DebugOutput.fpsTimer.show();
+		DebugOutput.flush(this.viewport, this.viewport.context);
 	}
-}
-
-/***********************************************************************
- * Viewport
- **********************************************************************/
-
-Planets.Viewport = function(game, w, h) {
-	this.game = game;
-
-	this.w = w;						//logical width
-	this.h = h;						//logical height
-
-	this.vw = $(window).width();	//viewport height
-	this.vh = $(window).height();	//viewport width
-
-	$('body').css('background-color', Planets.const.viewportBackgroundColor);
-
-	this.jq_bgcanvas = $('<canvas></canvas>')
-	.width(this.vw)
-	.height(this.vh)
-	.appendTo($('body'));
-
-	this.bgcanvas = this.jq_bgcanvas.get(0);
-	this.bgcanvas.width = this.vw;
-	this.bgcanvas.height = this.vh;
-	this.bgcontext = this.bgcanvas.getContext('2d');
-
-	this.jq_canvas = $('<canvas></canvas>')
-	.width(this.vw)
-	.height(this.vh)
-	.appendTo($('body'));
-
-	this.canvas = this.jq_canvas.get(0);
-	this.canvas.width = this.vw;
-	this.canvas.height = this.vh;
-	this.context = this.canvas.getContext('2d');
-
-	this.offset = {x: 0, y: 0};
-
-	this.moveSpeed = Planets.const.scrollSpeed;		// Screen movement speed
-	this.moveCorner = Planets.const.hotCornerSize;	// Hot corner size
-
-	this.bgUpdated = false;
-}
-
-Planets.Viewport.prototype.writeDebug = function(update, render, full, fps, pfps) {
-	this.context.font = "10pt Lucida Console";
-	this.context.fillStyle = "#ffffff";
-	this.context.fillText("Update: " + update, 10 - this.offset.x, 20 - this.offset.y);
-	this.context.fillText("Render: " + render, 10 - this.offset.x, 30 - this.offset.y);
-	this.context.fillText("Combin: " + full,   10 - this.offset.x, 40 - this.offset.y);
-	this.context.fillText("PotFPS: " + pfps,   10 - this.offset.x, 50 - this.offset.y);
-	this.context.fillText("ReaFPS: " + fps,   10 - this.offset.x, 60 - this.offset.y);
-	this.context.fill();
-}
-
-Planets.Viewport.prototype.clear = function() {
-	if(this.bgUpdated) {
-		//if the background has been updated, clear the
-		//transformations, clear the canvas and apply
-		//the new offsets
-		this.context.setTransform(1, 0, 0, 1, 0, 0);
-		this.context.clearRect(0, 0, this.vw, this.vh);
-		this.context.translate(this.offset.x, this.offset.y);
-
-		this.bgcontext.setTransform(1, 0, 0, 1, 0, 0);
-		this.bgcontext.clearRect(0, 0, this.vw, this.vh);
-		this.bgcontext.translate(this.offset.x, this.offset.y);
-	} else {
-		//nothing has changed - clear the foreground canvas (with regards to
-		//the translated offsets)
-		this.context.clearRect(0, 0, this.vw - this.offset.x, this.vh - this.offset.y);
-	}
-}
-
-Planets.Viewport.prototype.circleVisible = function(x, y, r) {
-	if(x+r < this.offset.x || x-r > (this.vw - this.offset.x )) return false;
-	if(y+r < this.offset.y || y-r > (this.vh - this.offset.y )) return false;
-	return true;
-}
-
-Planets.Viewport.prototype.rectVisible = function(x1, y1, x2, y2) {
-	if(x2 < this.offset.x || x1 > (this.vw - this.offset.x )) return false;
-	if(y2 < this.offset.y || y1 > (this.vh - this.offset.y )) return false;
-	return true;
-}
-
-Planets.Viewport.prototype.handleInput = function(mouse, keyboard, touch) {
-	this.bgUpdated = false;
-	this.handleMouse(mouse);
-	this.handleKeydown(keyboard);
-}
-
-// Handle viewport offset when mouse is in hot corners
-Planets.Viewport.prototype.handleMouse = function(mouse) {
-	if(mouse.absolute.y < this.moveCorner) 	
-		this.moveDown();
-	if(mouse.absolute.y > this.vh - this.moveCorner) 
-		this.moveUp();
-	if(mouse.absolute.x < this.moveCorner) 
-		this.moveLeft();
-	if(mouse.absolute.x > this.vw - this.moveCorner) 
-		this.moveRight();
-}
-
-Planets.Viewport.prototype.handleGestures = function(touch) {
-	var off;
-	if((off = touch.getOffset()) != null) {
-		this.offset.x += off.x;
-		this.offset.y += off.y;
-		this.bgUpdated = true;
-	}
-}
-
-// Handle viewport offset when arrow-keys are pressed
-Planets.Viewport.prototype.handleKeydown = function(keyboard) {
-	if(keyboard.keymap[Keys.UP]) 	this.moveUp();
-	if(keyboard.keymap[Keys.DOWN]) 	this.moveDown();
-	if(keyboard.keymap[Keys.LEFT])	this.moveLeft();
-	if(keyboard.keymap[Keys.RIGHT])	this.moveRight();
-}
-
-// Viewport movement methods
-Planets.Viewport.prototype.moveUp = function() {
-		this.bgUpdated = true;
-		this.offset.y -= this.moveSpeed;
-		if(this.offset.y < this.vh - this.h) 
-			this.offset.y = (this.vh - this.h);
-}
-
-Planets.Viewport.prototype.moveDown = function() {
-		this.bgUpdated = true;
-		this.offset.y += this.moveSpeed;
-		if(this.offset.y > 0)
-			this.offset.y = 0;
-}
-
-Planets.Viewport.prototype.moveLeft = function() {
-		this.bgUpdated = true;
-		this.offset.x += this.moveSpeed;
-		if(this.offset.x > 0)
-			this.offset.x = 0;
-}
-
-Planets.Viewport.prototype.moveRight = function() {
-		this.bgUpdated = true;
-		this.offset.x -= this.moveSpeed;
-		if(this.offset.x < this.vw - this.w)
-			this.offset.x = (this.vw - this.w);
-}
-
-/***********************************************************************
- * Mouse
- **********************************************************************/
-
-Planets.Mouse = function(game, viewport) {
-	this.game = game; 
-	this.viewport = viewport;
-
-	viewport.canvas.onmousemove = this.handler.bind(this);
-	viewport.jq_canvas.mousewheel(this.wheelHandler.bind(this));
-	viewport.jq_canvas.bind('mousedown', this.downHandler.bind(this));
-	viewport.jq_canvas.bind('mouseup', this.upHandler.bind(this));
-
-
-	//position including offset calculation
-	this.position = {x: 0, y: 0};
-	//absolute position (for fixed gui elements)
-	this.absolute = {x: 0, y: 0};
-
-
-	this.delta = 0;
-	this.left = viewport.jq_canvas.offset().left;
-	this.top  = viewport.jq_canvas.offset().top;
-	this.currentDown = null;	// Element on which the mousebutton was pressed down
-	this.down = false;
-}
-
-// Returns the delat and clears it (sets it to 0);
-Planets.Mouse.prototype.getClearDelta = function() {
-	var d = this.delta;
-	this.delta = 0;
-	return Math.round(d);
-}
-
-Planets.Mouse.prototype.handler = function(event) {
-	this.absolute.x = event.pageX - this.left;
-	this.absolute.y = event.pageY - this.top;
-	this.position.x = this.absolute.x - this.viewport.offset.x;
-	this.position.y = this.absolute.y - this.viewport.offset.y;
-}
-
-Planets.Mouse.prototype.wheelHandler = function(event, delta) {
-	event.preventDefault();
-	this.delta = delta;
-}
-
-Planets.Mouse.prototype.downHandler = function(event) {
-	this.currentDown = this.game.selected;
-	this.down = true;
-}
-
-Planets.Mouse.prototype.upHandler = function(event) {
-	if( this.currentDown != null && 
-		this.game.selected != null &&
-		this.currentDown != this.game.selected) 
-			this.currentDown.moveSelectedShips(this.game.selected, Fraction.Player);
-	
-	this.down = false;
-	this.currentDown = null;
-}
-
-/***********************************************************************
- * Key bindings
- **********************************************************************/
-
-Planets.Keymap = function(game, viewport) { 
-	this.keymap = new Array(128);
-	for(var i = 0; i < 128; i++)
-		this.keymap[i] = false;
-
-	window.onkeydown = this.handlerDown.bind(this);
-	window.onkeyup = this.handlerUp.bind(this);
-}
-
-Planets.Keymap.prototype.handlerDown = function(event) {
-	event.preventDefault();
-	this.keymap[event.keyCode] = true;
-}
-
-Planets.Keymap.prototype.handlerUp = function(event) {
-	event.preventDefault();
-	this.keymap[event.keyCode] = false;
 }
 
 
@@ -688,19 +365,14 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	this.name = name;
 	this.position = position;
 	this.radius = radius;
-	this.color = Planets.Renderable.Planet.colors[(Math.random() * Planets.Renderable.Planet.colors.length) | 0];
+	this.color = Planets.Renderable.Planet.colors.random();
 	this.connections = [];
 	this.mouseOver = false;
 
-	//Properties for handling orbitting ships	
-	this.ships = new Array(Fractions.length);
-	this.shipCount = new Array(Fractions.length); 
-	this.shipSelected = new Array(Fractions.length); 
-	for(var i = 0; i < Fractions.length; i++) {
-		this.ships[i] = [];
-		this.shipCount[i] = 0;
-		this.shipSelected[i] = 0;
-	}
+	this.ships = Store.create(Fractions.length);
+
+	//this.shipCount = new Array(Fractions.length); 
+	this.shipSelected = (new Array(Fractions.length)).init(0); 
 
 	//Ownership stuff
 	this.ownerChangeStart = null;
@@ -711,9 +383,6 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	//Animation
 	this.ownerAnimation = new Planets.Animation.Linear(0.2, 1.0, true, 1);
 	this.grdInner = this.grdOuter = null;
-
-	//Some object indices
-	this.renderIndex = this.bgRenderIndex = 0;
 
 	//Properties of path preview
 	this.path = null;
@@ -728,57 +397,35 @@ Planets.Renderable.Planet.prototype.connect = function(planet) {
 }
 
 Planets.Renderable.Planet.prototype.spawnShip = function(game, fraction) {
-	var i = this.ships[fraction].length;
 	var s = new Planets.Renderable.Ship(this, fraction);
-	game.push(s.init());
-	s.pIndex = i;
+	game.fxLayer.include(s.init());
 	s.attached = true;
-	this.shipCount[fraction]++;
-	this.ships[fraction][i] = s;
+	this.ships[fraction].add(s);
 	return s;
 }
 
 Planets.Renderable.Planet.prototype.attachShip = function(ship) {
-	var f = ship.getFraction();
-	var i = this.ships[f].length;
-	ship.pIndex = i;
 	ship.attached = true;
-	this.ships[f][i] = ship;
-	this.shipCount[f]++;
+	this.ships[ship.getFraction()].add(ship);
 }
 
 Planets.Renderable.Planet.prototype.removeShip = function(ship) {
 	if(!ship.attached) return;
-	var f = ship.getFraction();
-	this.ships[f][ship.pIndex].attached = false;
-	this.ships[f][ship.pIndex] = null;
-	this.shipCount[f]--;
+	ship.attached = false;
+	this.ships[ship.getFraction()].remove(ship);
 }
 
 Planets.Renderable.Planet.prototype.moveSelectedShips = function(target, fraction) {
 	var path = Planets.Path(this, target);
-	var len = this.ships[fraction].length, counter = 0;
-	for(var i = 0; i < len; i++) {
-		if(counter >= this.shipSelected[fraction]) return;
-		if(this.ships[fraction][i] != null) {
-			this.ships[fraction][i].moveTo(path);
-			this.removeShip(this.ships[fraction][i]);
-			counter++;
-		}
-	}
+	var self = this;
+	this.ships[fraction].times(function () {
+		this.moveTo(path);
+		self.removeShip(this);
+	}, Math.min(this.ships[fraction].size, this.shipSelected[fraction]));
 }
 
 Planets.Renderable.Planet.prototype.getRandomEnemy = function(forFraction) {
-	for(var i = 0; i < this.shipCount.length; i++) {
-		if(i != forFraction && this.shipCount[i] > 0) {
-			for(var x = 0; x < this.ships[i].length; x++) {
-				if(this.ships[i][x] != null)
-					return this.ships[i][x];
-			} 
-		}
-	}
-
-	return null;
+	return this.ships[(forFraction == Fraction.Player)? Fraction.Enemy : Fraction.Player].random();
 }
 
 Planets.Renderable.Planet.prototype.showPathPreview = function(path) {
@@ -796,7 +443,7 @@ Planets.Renderable.Planet.prototype.checkOwnership = function() {
 	var oneFractionIndex = null;
 
 	for(var i = 0; i < Fractions.length; i++) {
-		if(this.shipCount[i] > 0) {
+		if(this.ships[i].size > 0) {
 			if(oneFractionIndex == null) {
 				noFractionPresent = false;
 				oneFractionIndex = i;
@@ -836,7 +483,7 @@ Planets.Renderable.Planet.prototype.checkSpawn = function(game) {
 	if(this.owner == Fraction.Neutral) return;
 	if(Date.now() - this.spawnTimer >= Planets.const.planetSpawnRate) {
 		this.spawnTimer = Date.now();
-		if(this.shipCount[this.owner] > Planets.const.planetSpawnMaxPresent) return;
+		if(this.ships[this.owner].size > Planets.const.planetSpawnMaxPresent) return;
 		this.spawnShip(game, this.owner);
 	}
 }
@@ -857,11 +504,10 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 
 
 	if(this.mouseOver) {
-		this.shipSelected[Fraction.Player] += game.mouse.getClearDelta();
-		this.shipSelected[Fraction.Player] = 
-			(this.shipSelected[Fraction.Player] < 0)? 0 : 
-			(this.shipSelected[Fraction.Player] > this.shipCount[Fraction.Player])? this.shipCount[Fraction.Player] : this.shipSelected[Fraction.Player];
-	
+		this.shipSelected[Fraction.Player] = Math.max(0, Math.min(
+			this.shipSelected[Fraction.Player] + game.mouse.getClearDelta(), 
+			this.ships[Fraction.Player].size));
+
 		//Preview possible path to this planet
 		if(game.mouse.down && game.mouse.currentDown != this && !this.path)
 			this.showPathPreview(Planets.Path(game.mouse.currentDown, this));
@@ -930,7 +576,8 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 	var x = this.position.x, y = this.position.y, r = this.radius;
 
 
-	if(this.shipCount[Fraction.Player]) {
+	// if(this.shipCount[Fraction.Player]) {
+	if(this.ships[Fraction.Player].size) {
 		context.beginPath();
 		context.lineWidth = 12;
 
@@ -944,7 +591,7 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 			context.beginPath();
 			context.strokeStyle = this.color;
 			context.globalAlpha = 0.5;
-			context.arc(x, y, r + 12, 0, (this.shipSelected[Fraction.Player] / this.shipCount[Fraction.Player]) * PI2);
+			context.arc(x, y, r + 12, 0, (this.shipSelected[Fraction.Player] / this.ships[Fraction.Player].size) * PI2);
 			context.stroke();	
 			context.globalAlpha = 1;
 		}
@@ -955,7 +602,7 @@ Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
 		context.strokeStyle = Planets.const.planetNameBorderColor;
 		context.lineWidth = 1;
 		context.font = 'bold 16pt Verdana';
-		var str = this.shipSelected[Fraction.Player] + "/" + this.shipCount[Fraction.Player];
+		var str = this.shipSelected[Fraction.Player] + "/" + this.ships[Fraction.Player].size;
 		var dim = (context.measureText(str).width / 2) | 0;
 		context.textBaseline = "middle";
 
@@ -989,7 +636,6 @@ Planets.Renderable.Planet.prototype.renderPath = function(context, origin, targe
 
 Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context, deltaTime, gameTime) {
 	var x = this.position.x, y = this.position.y, r = this.radius;
-
 	if(!this.grdInner) {
 		this.grdInner = context.createRadialGradient(x, y, 5, x, y, r);
 		this.grdInner.addColorStop(0, Planets.const.planetCoreColor);
@@ -1075,7 +721,7 @@ Planets.Renderable.Ship.prototype.checkFight = function(deltaTime) {
 }
 
 Planets.Renderable.Ship.prototype.kill = function(game) {
-	game.remove(this);
+	game.fxLayer.remove(this);
 	if(this.orbit && this.attached)
 		this.orbit.removeShip(this);
 }
@@ -1207,8 +853,11 @@ Planets.Renderable.Missile.prototype.update = function(game, viewport, deltaTime
 	this.position.x = (this.position.x + speed * Planets.lookup.cos[this.angle | 0]);
 	this.position.y = (this.position.y + speed * Planets.lookup.sin[this.angle | 0]);
 
-	if(distance(this.position, this.target.position) < 10 || this.target.health < 0) {
+	if(distance(this.position, this.target.position) < 10) {
 		this.target.health -= Planets.const.missileBaseDamage + (Math.random() * Planets.const.missileRandomDamage);
+		this.finished = true;
+		Planets.Renderable.Missile.cache.retain(this);
+	} else if(!this.target.orbit || this.target.health < 0) {
 		this.finished = true;
 		Planets.Renderable.Missile.cache.retain(this);
 	}
@@ -1352,7 +1001,8 @@ Planets.Skynet.prototype.redistributeCoreShips = function() {
 	var p, c;
 	for(var i = 0; i < this.core.length; i++) {
 		p = this.core[i];
-		c = p.shipCount[this.me] - this.const.baseAmount;
+		// c = p.shipCount[this.me] - this.const.baseAmount;
+		c = p.ships[this.me].size - this.const.baseAmount;
 		if(c <= 0) continue;
 
 		for(var x = 0; x < c; x++) {
@@ -1394,9 +1044,11 @@ Planets.Skynet.prototype.evaluateCurrentTargets = function() {
 
 	//check if there are still ships at inactive targets...
 	for(var i in this.i_targets) {
-		if(this.i_targets[i].shipCount[this.me] > 0) {
+		// if(this.i_targets[i].shipCount[this.me] > 0) {
+		if(this.i_targets[i].ships[this.me].size > 0) {
 			this.free.push({
-				count: this.i_targets[i].shipCount[this.me],
+				// count: this.i_targets[i].shipCount[this.me],
+				count: this.i_targets[i].ships[this.me].size,
 				origin: this.i_targets[i]
 			});
 		}
@@ -1463,12 +1115,16 @@ Planets.Skynet.prototype.searchTarget = function() {
 
 Planets.Skynet.prototype.scoreTarget = function(planet) {
 	var s = 0, t = 0, p = null;
-	t += planet.shipCount[Fraction.Player];
-	s -= planet.shipCount[Fraction.Player];
+	// t += planet.shipCount[Fraction.Player];
+	// s -= planet.shipCount[Fraction.Player];
+	t += planet.ships[Fraction.Player].size;
+	s -= planet.ships[Fraction.Player].size;
 	for(var i = 0; i < planet.connections.length; i++) {
 		if(planet.connections[i].owner == this.me) s += 1;
-		t += this.const.neighbourTroopEstimation * (planet.connections[i].shipCount[Fraction.Player]);
-		s -= this.const.neighbourTroopEstimation * (planet.connections[i].shipCount[Fraction.Player]);
+		// t += this.const.neighbourTroopEstimation * (planet.connections[i].shipCount[Fraction.Player]);
+		// s -= this.const.neighbourTroopEstimation * (planet.connections[i].shipCount[Fraction.Player]);
+		t += this.const.neighbourTroopEstimation * (planet.connections[i].ships[Fraction.Player].size);
+		s -= this.const.neighbourTroopEstimation * (planet.connections[i].ships[Fraction.Player].size);
 	}
 
 	return {
@@ -1485,11 +1141,14 @@ Planets.Skynet.prototype.isBorderPlanet = function(planet) {
 }
 
 Planets.Skynet.prototype.getRequiredShips = function(planet) {
-	var mytroops = planet.shipCount[this.me];
-	var enemytroops = planet.shipCount[Fraction.Player];
+	// var mytroops = planet.shipCount[this.me];
+	// var enemytroops = planet.shipCount[Fraction.Player];
+	var mytroops = planet.ships[this.me].size;
+	var enemytroops = planet.ships[Fraction.Player].size;
 	for(var i = 0; i < planet.connections.length; i++) {
 		if(planet.connections[i].owner == this.me) continue;
-		enemytroops += Math.max(this.const.emptyAmount, this.const.neighbourTroopEstimation * planet.connections[i].shipCount[Fraction.Player]);
+		// enemytroops += Math.max(this.const.emptyAmount, this.const.neighbourTroopEstimation * planet.connections[i].shipCount[Fraction.Player]);
+		enemytroops += Math.max(this.const.emptyAmount, this.const.neighbourTroopEstimation * planet.connections[i].ships[Fraction.Player].size);
 	}
 
 	return (enemytroops - mytroops);

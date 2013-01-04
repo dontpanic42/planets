@@ -9,20 +9,18 @@
 	<script type="application/javascript" src="js/jquery.mousewheel.js"></script>
 
 	<script type="application/javascript" src="js/presets-default.js"></script>
+	<script type="application/javascript" src="js/planet-util.js"></script>
+	<script type="application/javascript" src="js/planet-io.js"></script>
 	<script type="application/javascript" src="js/planet.js"></script>
 
 	<script type="application/javascript">
 		$(document).ready(function () {
 			console.log("Initializing");
 
-			var bgx = $(window).width();
-			var bgy = $(window).height();
-			$('body').css('background-size', bgx + "px " + bgy + "px");
-
-
 			var m = new Planets.Main(2000, 2000);
 				m.init();
 				m.start();
+
 
 		});
 	</script>
