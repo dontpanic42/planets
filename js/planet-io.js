@@ -107,6 +107,8 @@ Planets.Viewport.prototype.handleKeydown = function(keyboard) {
 	if(keyboard.keymap[Keys.DOWN]) 	this.moveDown();
 	if(keyboard.keymap[Keys.LEFT])	this.moveLeft();
 	if(keyboard.keymap[Keys.RIGHT])	this.moveRight();
+
+	if(keyboard.keymap[Keys.PAUSE]) this.game.stop();
 }
 
 // Viewport movement methods

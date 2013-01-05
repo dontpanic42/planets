@@ -38,6 +38,7 @@ Planets.Build = function(game, viewport) {
 			//game.bgPush(o);
 			game.fxLayer.include(o);
 			game.bgLayer.include(o, "bgUpdate", "bgRender");
+			game.fgLayer.include(o, null, "renderUI");
 
 			if(x == 1 && y == 1) first = o;
 			if(x == resX-1 && y == resY-1) last = o;
@@ -90,7 +91,7 @@ Planets.Build = function(game, viewport) {
 }
 
 Planets.Build.spawnRandom = function(game, fraction, planet) {
-	var rnd = Math.round(Math.random() * 10) + 2;
+	var rnd = 5;// Math.round(Math.random() * 200) + 2;
 	for(var i = 0; i < rnd; i++) {
 		planet.spawnShip(game, fraction)
 	}
@@ -272,13 +273,21 @@ Planets.Main = function(w, h) {
 Planets.Main.prototype.init = function() {
 	//create lookup table for sin/cos angles
 	//default is 1024 steps (1°=360/1024)
-	Planets.lookup = {sin: [], cos: []};
+	Planets.lookup = {sin: [], cos: [], sin360 : [], cos360 : []};
 	var ang;
 	for(var i = 0; i < 1024; i++) {
 		ang = PI2 * i / 1024;
 		Planets.lookup.cos[i] = Math.cos(ang);
 		Planets.lookup.sin[i] = Math.sin(ang);
 	}
+
+	for(var i = 0; i < 360; i++) {
+		ang = PI2 * i / 360;
+		Planets.lookup.cos360[i] = Math.cos(ang);
+		Planets.lookup.sin360[i] = Math.sin(ang);
+	}
+
+	Planets.Renderable.Ship.buildRenderCache();
 
 	this.skynet = new Planets.Skynet();
 
@@ -320,7 +329,6 @@ Planets.Main.prototype.loop = function() {
 
 	this.fxLayer.update(this, this.viewport, deltaTime, gameTime);
 	this.bgLayer.update(this, this.viewport, deltaTime, gameTime);
-	this.fgLayer.update(this, this.viewport, deltaTime, gameTime);
 
 
 	if(debug) {
@@ -568,13 +576,11 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context, d
 		context.globalAlpha = 1.0;
 	}
 
-	//Draw UI
-	if(this.mouseOver)
-		this.renderStatusUI(context);
-
 }
 
-Planets.Renderable.Planet.prototype.renderStatusUI = function(context) {
+Planets.Renderable.Planet.prototype.renderUI = function(game, viewport, context, deltaTime, gameTime) {
+	if(!this.mouseOver) return;
+
 	var x = this.position.x, y = this.position.y, r = this.radius;
 
 
@@ -670,6 +676,7 @@ Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context,
  * Ship
  **********************************************************************/
 
+
 Planets.Renderable.Ship = function(planet, fraction) { 
 	this.orbit = planet;
 	this.position = {x: 0, y: 0};
@@ -677,21 +684,69 @@ Planets.Renderable.Ship = function(planet, fraction) {
 	this.fraction = fraction;
 
 	this.speed = Planets.const.shipBaseSpeed + ((Math.random() * Planets.const.shipRandomSpeed) | 0);
+	this.orbitSpeed = (this.speed * Planets.const.shipOrbitSpeedMultiplicator) | 0;
 
 	this.health = Planets.const.shipInitHealth;
 	this.cannon = new Planets.Animation.Burst(Planets.const.shipFireRate, true);
 
 	this.enemy = null;
+
+	this.renderCache = Planets.Renderable.Ship.renderCache[this.fraction];
 }
+
+
 
 Planets.Renderable.Ship.prototype = new Planets.Renderable();
 Planets.Renderable.Ship.prototype.constructor = Planets.Renderable.Ship;
 Planets.Renderable.Ship.prototype.orbit = null;
 Planets.Renderable.Ship.prototype.speed = 70;
 
+Planets.Renderable.Ship.buildRenderCache = function() {
+	this.renderCache = new Array(Fraction.length);
+	for(var i = 0; i < Fractions.length; i++) {
+		if(i == Fraction.Neutral) continue;
+		this.renderCache[i] = {
+			default : PreRender.createRotated(12, 12, this.preRenderShip, [Fractions[i].color]),
+			moving : PreRender.createRotated(16, 16, this.preRenderShipAction, [Fractions[i].color])
+		}
+	}
+}
+
+Planets.Renderable.Ship.preRenderShip = function(context, angle, color) {
+	context.save();
+	context.beginPath();    
+ 	context.fillStyle = color;
+ 	context.translate(6, 6); 
+ 	context.rotate(angle);	
+ 	context.moveTo(-6, 0);
+ 	context.bezierCurveTo(-6,  4, -2,  4,  6, 0);
+ 	context.bezierCurveTo(-2, -4, -6, -4, -6, 0);
+	context.fill();
+	context.restore();
+}
+
+Planets.Renderable.Ship.preRenderShipAction = function(context, angle, color) {
+	context.save();
+	context.beginPath();    
+ 	context.fillStyle = color;
+ 	context.translate(8, 8); 
+ 	context.rotate(angle);	
+ 	context.moveTo(-4, 0);
+ 	context.bezierCurveTo(-4,  4,  0,  4,  8, 0);
+ 	context.bezierCurveTo( 0, -4, -4, -4, -4, 0);
+	context.fill();
+
+	context.beginPath();
+	context.fillStyle = Planets.const.shipExhaustColor;
+	context.arc(-6, 0, 2, 0, PI2);
+	context.fill();
+
+	context.restore();
+}
+
 Planets.Renderable.Ship.prototype.init = function() {
 	//Angle between the ship and the planet
-	this.angle = (Math.random() * (1024)) | 0;
+	this.angle = (Math.random() * (360)) | 0;
 	//Distance between the ship and the planet surface
 	this.offset = ((Math.random() * (Planets.const.shipOrbitOffsetMax - Planets.const.shipOrbitOffsetMin) ) + Planets.const.shipOrbitOffsetMin) | 0;
 
@@ -701,6 +756,7 @@ Planets.Renderable.Ship.prototype.init = function() {
 
 	this.currentMoveTarget = null;	//current target to move to
 	this.moveQ = [];				//task que
+
 
 	return this;
 }
@@ -739,11 +795,11 @@ Planets.Renderable.Ship.prototype.update = function(game, viewport, deltaTime, g
 		this.currentMoveTarget = this.moveQ.shift();
 
 	if(this.orbit) {
-		this.angle += (this.speed * (deltaTime / 1000));
-		if(this.angle >= 1024) this.angle -= 1024;
+		this.angle += (this.orbitSpeed * (deltaTime / 1000));
+		if(this.angle >= 360) this.angle -= 360;
 
-		this.position.x = (this.orbit.position.x + (this.orbit.radius + this.offset) * Planets.lookup.cos[this.angle | 0]);
- 		this.position.y = (this.orbit.position.y + (this.orbit.radius + this.offset) * Planets.lookup.sin[this.angle | 0]);
+		this.position.x = (this.orbit.position.x + (this.orbit.radius + this.offset) * Planets.lookup.cos360[this.angle | 0]);
+ 		this.position.y = (this.orbit.position.y + (this.orbit.radius + this.offset) * Planets.lookup.sin360[this.angle | 0]);
 	} 
 
 	if(this.currentMoveTarget) {
@@ -753,7 +809,7 @@ Planets.Renderable.Ship.prototype.update = function(game, viewport, deltaTime, g
 		if(distance(this.position, target.position) <= (target.radius + this.offset)) {
 			this.orbit = this.currentMoveTarget;
 			this.currentMoveTarget = null;
-			this.angle = angulate(this.position, this.orbit.position) + 512;
+			this.angle = angulate360(this.position, this.orbit.position) + 180;
 			//only attach this ship to an orbit if the moveQ is empty...
 			if(!this.moveQ.length) this.orbit.attachShip(this);
 			return;
@@ -761,20 +817,20 @@ Planets.Renderable.Ship.prototype.update = function(game, viewport, deltaTime, g
 
 		//still in orbit... wait for correct angle to take off...
 		if(this.orbit) {
-			var requiredA = angulate(this.orbit.position, target.position);
+			var requiredA = angulate360(this.orbit.position, target.position);
 			if(Math.abs(requiredA - this.angle) < 10) {
 				this.orbit = null;
-				this.angle = requiredA + (1024*0.75);
+				this.angle = requiredA + 270;
 				this.enemy = null;
 			}
 			return;
 		}
 
-		var a = angulate(this.position,target.position);
+		var a = angulate360(this.position,target.position);
 		var speed = this.speed * (deltaTime / 1000);
 
-		this.position.x = (this.position.x + speed * Planets.lookup.cos[a | 0]);
-		this.position.y = (this.position.y + speed * Planets.lookup.sin[a | 0]);
+		this.position.x = (this.position.x + speed * Planets.lookup.cos360[a | 0]);
+		this.position.y = (this.position.y + speed * Planets.lookup.sin360[a | 0]);
 	}
 
 	this.checkFight(deltaTime);
@@ -786,30 +842,16 @@ Planets.Renderable.Ship.prototype.moveTo = function(path) {
 			this.moveQ.push(path[i]);
 }
 
+
+
 Planets.Renderable.Ship.prototype.render = function(game, viewport, context, deltaTime, gameTime) {
 	if(!viewport.circleVisible(this.position.x, this.position.y, 2)) return;
 
-	if(this.health < 0) return;
+    if(!this.orbit || this.currentMoveTarget)
+    	this.renderCache.moving.put(context, this.position.x, this.position.y, this.angle + 90);
+    else
+    	this.renderCache.default.put(context, this.position.x, this.position.y, this.angle + 90);
 
- 	context.save();
- 	context.beginPath();    
- 	context.fillStyle = Fractions[this.fraction].color;
- 	context.translate(this.position.x, this.position.y);
-    context.rotate( ((PID1024) * this.angle) + (PID4) );
- 	context.moveTo(0, 0);
- 	context.bezierCurveTo(0, 4, 4, 4, 12, 0);
- 	context.bezierCurveTo(4, -4, 0, -4, 0, 0);
-	context.fill();
-
- 	//if not in orbit or moving to target, draw the "engine exhaust"
-	if(!this.orbit || this.currentMoveTarget) {
-		context.beginPath();
-		context.fillStyle = Planets.const.shipExhaustColor;
-		context.arc(-2, 0, 2, 0, PI2);
-		context.fill();
-	}
-
-	context.restore();
 }
 
 /***********************************************************************
@@ -1102,12 +1144,12 @@ Planets.Skynet.prototype.searchTarget = function() {
 	for(var i = 0; i < this.border.length; i++) {
 		for(var x = 0; x < this.border[i].connections.length; x++) {
 			tmp = this.border[i].connections[x];
-			if(tmp.owner == this.me || tmp in this.a_targets) continue;
-
-			tmps = this.scoreTarget(tmp);
-			if(tmps.score > s.score) {
-				s = tmps;
-				p = tmp;
+			if(!(tmp.owner == this.me || tmp in this.a_targets)) {
+				tmps = this.scoreTarget(tmp);
+				if(tmps.score > s.score) {
+					s = tmps;
+					p = tmp;
+				}
 			}
 		}
 	}
@@ -1123,8 +1165,6 @@ Planets.Skynet.prototype.scoreTarget = function(planet) {
 	s -= planet.ships[Fraction.Player].size;
 	for(var i = 0; i < planet.connections.length; i++) {
 		if(planet.connections[i].owner == this.me) s += 1;
-		// t += this.const.neighbourTroopEstimation * (planet.connections[i].shipCount[Fraction.Player]);
-		// s -= this.const.neighbourTroopEstimation * (planet.connections[i].shipCount[Fraction.Player]);
 		t += this.const.neighbourTroopEstimation * (planet.connections[i].ships[Fraction.Player].size);
 		s -= this.const.neighbourTroopEstimation * (planet.connections[i].ships[Fraction.Player].size);
 	}
@@ -1149,7 +1189,6 @@ Planets.Skynet.prototype.getRequiredShips = function(planet) {
 	var enemytroops = planet.ships[Fraction.Player].size;
 	for(var i = 0; i < planet.connections.length; i++) {
 		if(planet.connections[i].owner == this.me) continue;
-		// enemytroops += Math.max(this.const.emptyAmount, this.const.neighbourTroopEstimation * planet.connections[i].shipCount[Fraction.Player]);
 		enemytroops += Math.max(this.const.emptyAmount, this.const.neighbourTroopEstimation * planet.connections[i].ships[Fraction.Player].size);
 	}
 

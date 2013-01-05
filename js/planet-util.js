@@ -9,6 +9,11 @@ var angulate = function(position1, position2) {
 	return 1024 - ((a < 0)? a + 1024 : a);
 }
 
+var angulate360 = function(position1, position2) {
+	var a = Math.atan2(-(position2.y-position1.y), (position2.x-position1.x)) * (360/PI2);
+	return 360 - ((a < 0)? a + 360 : a);
+}
+
 Array.prototype.init = function(value) {
 	for(var i = 0; i < this.length; i++)
 		this[i] = value;
@@ -96,14 +101,14 @@ var Store = {
 				}
 			},
 
-			//Calls callback "times" times on different
-			//objects
+			//Returns "times" different objects
 			times : function(callback, times) {
 				var times = Math.min(this.size, times);
 				if(times == 0) return;
 
 				for(var i = 0; i < this.length; i++) {
 					if(times-- <= 0) return;
+					if(!this[i]) continue;
 					callback.apply(this[i], []);
 				}
 			},
@@ -195,6 +200,86 @@ var RenderLayer = {
 	}
 };
 
+
+var PreRender = {
+
+	create : function(w, h, renderCallback, args) {
+		return ({
+
+			data : null,
+
+			c : 0,
+
+			w : 0,
+			h : 0,
+
+			init : function(w, h, renderCallback, args) {
+				var canvas = document.createElement("canvas");
+				canvas.w = this.w = w;
+				canvas.h = this.h = h;
+
+				var context = canvas.getContext("2d");
+
+				args = [context].concat(args);
+				renderCallback.apply(this, args);
+
+				this.c = canvas;
+				return this;
+			},
+
+			put : function(context, x, y) {
+				//context.putImageData(this.data, x, y);
+				context.drawImage(this.c, x, y);
+			}
+
+		}).init(w, h, renderCallback, args);
+	},
+
+
+	createRotated : function(w, h, renderCallback, args) {
+		return ({
+
+			c : null,
+
+			w : 0,
+			h : 0,
+			offsetX : 0,
+			offsetY : 0,
+
+			init : function(w, h, renderCallback, args) {
+
+				this.c = document.createElement("canvas");
+				this.c.width = w * 360;
+				this.c.height = this.h = h;
+				this.w = w;
+				var ctx = this.c.getContext("2d");
+
+				args = [ctx, 0].concat(args)
+				for(var i = 0; i < 360; i++) {
+					args[1] = (i/360) * PI2;
+					ctx.save();
+					ctx.translate(i * w, 0);
+					renderCallback.apply(this, args);
+					ctx.restore();
+				}
+
+				this.offsetX = (w/2) | 0;
+				this.offsetY = (h/2) | 0;
+
+				return this;
+
+			},
+
+			put : function(context, x, y, angle) {
+				angle |= 0;
+				if(angle >=  360) angle -= 360;
+
+				context.drawImage(this.c, this.w * angle, 0, this.w, this.h, x - this.offsetX, y - this.offsetY, this.w, this.h);
+			}
+
+		}).init(w, h, renderCallback, args);
+	}
+}
 
 var DebugOutput = {
 	fpsTimer : {

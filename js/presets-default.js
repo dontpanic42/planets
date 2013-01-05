@@ -19,9 +19,11 @@ Planets.const = {
 	//are in orbit, stop spawning (overpopulation)
 	planetSpawnMaxPresent : 	12,
 	//Basevalue for ship speed
-	shipBaseSpeed : 			70,
+	shipBaseSpeed : 			80,
 	//Random addition (0...n) to shipBaseSpeed
 	shipRandomSpeed : 			30,
+	//Influence of being in orbit on the ship speed
+	shipOrbitSpeedMultiplicator:0.5,
 	//Time in ms between firing
 	shipFireRate : 				4000,
 	//Max. ship helath
@@ -166,5 +168,6 @@ var Keys = {
 	LEFT : 37,
 	RIGHT : 39,
 	UP : 40,
-	DOWN : 38
+	DOWN : 38,
+	PAUSE : 27,
 };
