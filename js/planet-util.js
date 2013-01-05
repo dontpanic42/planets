@@ -203,39 +203,6 @@ var RenderLayer = {
 
 var PreRender = {
 
-	create : function(w, h, renderCallback, args) {
-		return ({
-
-			data : null,
-
-			c : 0,
-
-			w : 0,
-			h : 0,
-
-			init : function(w, h, renderCallback, args) {
-				var canvas = document.createElement("canvas");
-				canvas.w = this.w = w;
-				canvas.h = this.h = h;
-
-				var context = canvas.getContext("2d");
-
-				args = [context].concat(args);
-				renderCallback.apply(this, args);
-
-				this.c = canvas;
-				return this;
-			},
-
-			put : function(context, x, y) {
-				//context.putImageData(this.data, x, y);
-				context.drawImage(this.c, x, y);
-			}
-
-		}).init(w, h, renderCallback, args);
-	},
-
-
 	createRotated : function(w, h, renderCallback, args) {
 		return ({
 
@@ -347,6 +314,7 @@ var DebugOutput = {
 		var x1 = 10 - viewport.offset.x,
 			x2 = 90 - viewport.offset.x;
 
+		context.beginPath();
 		context.font = "10pt Lucida Console";
 		context.fillStyle = "#ffffff";
 		for(var i = 0; i < this.towriteName.length; i++) {

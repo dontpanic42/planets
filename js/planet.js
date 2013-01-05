@@ -527,7 +527,6 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 	this.checkOwnership();
 	this.checkSpawn(game);
 
-	DebugOutput.write("#PS", this.ships[Fraction.Player].size);
 }
 
 Planets.Renderable.Planet.prototype.render = function(game, viewport, context, deltaTime, gameTime) {
@@ -580,11 +579,9 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context, d
 
 Planets.Renderable.Planet.prototype.renderUI = function(game, viewport, context, deltaTime, gameTime) {
 	if(!this.mouseOver) return;
-
 	var x = this.position.x, y = this.position.y, r = this.radius;
 
 
-	// if(this.shipCount[Fraction.Player]) {
 	if(this.ships[Fraction.Player].size) {
 		context.beginPath();
 		context.lineWidth = 12;
@@ -595,13 +592,13 @@ Planets.Renderable.Planet.prototype.renderUI = function(game, viewport, context,
 		context.stroke();
 
 		// Selection dial foreground
-		if(this.shipSelected) {
+		if(this.shipSelected[Fraction.Player]) {
 			context.beginPath();
 			context.strokeStyle = this.color;
 			context.globalAlpha = 0.5;
 			context.arc(x, y, r + 12, 0, (this.shipSelected[Fraction.Player] / this.ships[Fraction.Player].size) * PI2);
 			context.stroke();	
-			context.globalAlpha = 1;
+			context.globalAlpha = 1.0;
 		}
 
 		// Draw text
@@ -619,15 +616,16 @@ Planets.Renderable.Planet.prototype.renderUI = function(game, viewport, context,
 	}
 
 	//Draw planet name
+	context.beginPath();
 	context.fillStyle = Planets.const.planetNameFillColor;
 	context.strokeStyle = Planets.const.planetNameBorderColor;
 	context.lineWidth = 1;
 	context.font = 'bold 16pt Verdana';
-	var dim = context.measureText(this.name);
+	var dim = (context.measureText(this.name).width / 2) | 0;
 	context.textBaseline = "bottom";
 
-	context.fillText(this.name, x - (dim.width/2), y - r - 16);
-	context.strokeText(this.name, x - (dim.width/2), y - r - 16);
+	context.fillText(this.name, x - dim, y - r - 16);
+	context.strokeText(this.name, x - dim, y - r - 16);
 }
 
 Planets.Renderable.Planet.prototype.renderPath = function(context, origin, target) {
@@ -1159,8 +1157,6 @@ Planets.Skynet.prototype.searchTarget = function() {
 
 Planets.Skynet.prototype.scoreTarget = function(planet) {
 	var s = 0, t = 0, p = null;
-	// t += planet.shipCount[Fraction.Player];
-	// s -= planet.shipCount[Fraction.Player];
 	t += planet.ships[Fraction.Player].size;
 	s -= planet.ships[Fraction.Player].size;
 	for(var i = 0; i < planet.connections.length; i++) {

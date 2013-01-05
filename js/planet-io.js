@@ -41,17 +41,6 @@ Planets.Viewport = function(game, w, h) {
 	// this.bgUpdated = false;
 }
 
-Planets.Viewport.prototype.writeDebug = function(update, render, full, fps, pfps) {
-	this.context.font = "10pt Lucida Console";
-	this.context.fillStyle = "#ffffff";
-	this.context.fillText("Update: " + update, 10 - this.offset.x, 20 - this.offset.y);
-	this.context.fillText("Render: " + render, 10 - this.offset.x, 30 - this.offset.y);
-	this.context.fillText("Combin: " + full,   10 - this.offset.x, 40 - this.offset.y);
-	this.context.fillText("PotFPS: " + pfps,   10 - this.offset.x, 50 - this.offset.y);
-	this.context.fillText("ReaFPS: " + fps,   10 - this.offset.x, 60 - this.offset.y);
-	this.context.fill();
-}
-
 Planets.Viewport.prototype.clear = function() {
 	if(this.game.bgLayer.isInvalid()) {
 		//if the background has been updated, clear the
