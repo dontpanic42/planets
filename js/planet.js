@@ -568,7 +568,7 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context, d
 	if(this.owner != Fraction.Neutral) {
 		context.beginPath();
 		context.lineWidth = 4;
-		context.globalAlpha = (this.ownerApplicant)? this.ownerAnimation.next(deltaTime) : 0.8;
+		context.globalAlpha = (this.ownerApplicant != null)? this.ownerAnimation.next() : 0.8;
 		context.strokeStyle = Fractions[this.owner].color;
 		context.arc(this.position.x, this.position.y, this.radius - 2, 0, PI2);
 		context.stroke();

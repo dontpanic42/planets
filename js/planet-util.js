@@ -107,8 +107,8 @@ var Store = {
 				if(times == 0) return;
 
 				for(var i = 0; i < this.length; i++) {
-					if(times-- <= 0) return;
 					if(!this[i]) continue;
+					if(times-- <= 0) return;
 					callback.apply(this[i], []);
 				}
 			},
