@@ -79,10 +79,18 @@ var Loader = {
 				fontFamily : "Verdana",
 				marginLeft : 20
 			}))
+		.append(this.levelDescription = $('<p></p>')
+			.css({
+				color : '#777777',
+				fontSize : 10,
+				fontFamily : "Verdana",
+				marginTop : 20
+			}))
 		.appendTo(this.overlay);
 		this.loadContainer.css({
 			position : "absolute",
-			left : ($(window).width() - 200) / 2,
+			width : 400,
+			left : ($(window).width() - 400) / 2,
 			top  : ($(window).height() - this.loadContainer.outerHeight()) / 2,
 			zIndex : 20
 		});
@@ -158,6 +166,7 @@ var Loader = {
 						color : "#ffffff"
 					})
 					.click(this.destroyLoadingScreen.bind(this)), 'start');
+				this.levelDescription.html(Planets.Level.getDescription());
 				this.loadContainer.fadeIn();
 			}).bind(this));
 		}
