@@ -127,12 +127,12 @@ Planets.Animation.Linear.prototype.next = function() {
 	return this.current;
 }
 
-Planets.Animation.Linear.prototype.reset = function(a, b, speed) {
-	this.circle = false;
-	this.start = Date.now();
-	this.a = a;
-	this.b = b;
-}
+// Planets.Animation.Linear.prototype.reset = function(a, b, speed) {
+// 	this.circle = false;
+// 	this.start = Date.now();
+// 	this.a = a;
+// 	this.b = b;
+// }
 
 Planets.Animation.Linear.prototype.switch = function() {
 	var tmp = this.a;

@@ -135,6 +135,8 @@ var Store = {
 			},
 
 			random : function() {
+				//This isn't perfect but since it's only used
+				//to get random enemys, it will be enough.
 				if(!this.size) return null;
 				var seed = (Math.random() * this.length) | 0;
 				while(true) {

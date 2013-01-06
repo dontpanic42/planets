@@ -158,6 +158,7 @@ Planets.Mouse = function(game, viewport) {
 
 // Returns the delat and clears it (sets it to 0);
 Planets.Mouse.prototype.getClearDelta = function() {
+	if( (this.delta < 1 && this.delta > 0) || (this.delta < 0 && this.delta > -1) ) return 0;
 	var d = this.delta;
 	this.delta = 0;
 	return Math.round(d);
@@ -172,7 +173,7 @@ Planets.Mouse.prototype.handler = function(event) {
 
 Planets.Mouse.prototype.wheelHandler = function(event, delta) {
 	event.preventDefault();
-	this.delta = delta;
+	this.delta += delta;
 }
 
 Planets.Mouse.prototype.downHandler = function(event) {
