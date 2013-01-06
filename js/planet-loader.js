@@ -1,3 +1,7 @@
+//Game Loader.
+//Use "presets" url-parameter for AI presets, e.g. presets=easy loads 'presets-easy.js'
+//Use "level" url-param for loading levels. Default is the random level generator.
+
 var Loader = {
 
 	getParameter : function(name) {

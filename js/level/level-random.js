@@ -68,20 +68,26 @@ Planets.Level = {
 		if(first && last) {
 			//Spawn player in the top left corner
 			first.owner = Fraction.Player;
+			Planets.stats.planets[Fraction.Player]++;
 			spawnRandom(game, Fraction.Player, first);
 			for(var i = 0; i < first.connections.length; i++) {
 				first.connections[i].owner = Fraction.Player;
 				spawnRandom(game, Fraction.Player, first.connections[i]);
+				Planets.stats.planets[Fraction.Player]++;
 			}
 
 			//Spawn enemy in the bottom right corner
 			last.owner = Fraction.Enemy;
+			Planets.stats.planets[Fraction.Enemy]++;
 			spawnRandom(game, Fraction.Enemy, last);
 			game.skynet.addPlanet(last);
-			for(var i = 0; i < first.connections.length; i++) {
-				last.connections[i].owner = Fraction.Enemy;
-				spawnRandom(game, Fraction.Enemy, last.connections[i]);
-				game.skynet.addPlanet(last.connections[i]);
+			for(var i = 0; i < last.connections.length; i++) {
+				if(last.connections[i].owner != Fraction.Player) {
+					last.connections[i].owner = Fraction.Enemy;
+					spawnRandom(game, Fraction.Enemy, last.connections[i]);
+					game.skynet.addPlanet(last.connections[i]);
+					Planets.stats.planets[Fraction.Enemy]++;
+				}
 			}
 		}
 	},
@@ -101,7 +107,13 @@ Planets.Level = {
 		return "A random generated galaxy awaits you. Kill everyone except yourself.";
 	},
 
-	endCondition : function(game, viewport) {
-		return null;
+	checkEndCondition : function(game, viewport) {
+		if(Planets.stats.planets[Fraction.Enemy] <= 0) {
+			game.stop();
+			alert('Congrats: You won!');
+		} else if(Planets.stats.planets[Fraction.Player] <= 0) {
+			game.stop();
+			alert('Sorry: You lost...');
+		}
 	}
 }

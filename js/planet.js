@@ -8,6 +8,11 @@ var PID180 = 180 / (Math.PI);
 var debug = true;
 var debugAI = false;
 
+Planets.stats = { 
+	ships : 	(new Array(Fractions.length)).init(0),
+	planets : 	(new Array(Fractions.length)).init(0)
+};
+
 /***********************************************************************
  * A* Pathfinder
  **********************************************************************/
@@ -242,10 +247,20 @@ Planets.Main.prototype.loop = function() {
 	this.bgLayer.render(this, this.viewport, this.viewport.bgcontext, deltaTime, gameTime);
 
 	if(debug) {
+
+		//Print stats
+		DebugOutput.write("#PP", Planets.stats.planets[Fraction.Player]);
+		DebugOutput.write("#PE", Planets.stats.planets[Fraction.Enemy]);
+		DebugOutput.write("#SP", Planets.stats.ships[Fraction.Player]);
+		DebugOutput.write("#SE", Planets.stats.ships[Fraction.Enemy]);
+
+		//Print fps
 		DebugOutput.fpsTimer.renderEnd();
 		DebugOutput.fpsTimer.show();
 		DebugOutput.flush(this.viewport, this.viewport.context);
 	}
+
+	Planets.Level.checkEndCondition(this, this.viewport);
 }
 
 
@@ -371,6 +386,10 @@ Planets.Renderable.Planet.prototype.checkOwnership = function() {
 			console.log(this.name + ": Ownership change imminent.")
 		} else {
 			if(Date.now() - this.ownerChangeStart >= Planets.const.planetOwnerChangeRate) {
+
+				Planets.stats.planets[this.owner]--;
+				Planets.stats.planets[this.ownerApplicant]++;
+
 				this.owner = oneFractionIndex;
 				this.ownerChangeStart = null;
 				this.ownerApplicant = null;
@@ -591,6 +610,8 @@ Planets.Renderable.Ship = function(planet, fraction) {
 	this.enemy = null;
 
 	this.renderCache = Planets.Renderable.Ship.renderCache[this.fraction];
+
+	Planets.stats.ships[fraction]++;
 }
 
 
@@ -679,6 +700,8 @@ Planets.Renderable.Ship.prototype.checkFight = function(deltaTime) {
 
 Planets.Renderable.Ship.prototype.kill = function(game) {
 	game.fxLayer.remove(this);
+	Planets.stats.ships[this.fraction]--;
+
 	if(this.orbit && this.attached)
 		this.orbit.removeShip(this);
 }
