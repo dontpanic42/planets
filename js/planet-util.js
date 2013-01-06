@@ -24,6 +24,15 @@ Array.prototype.random = function() {
 	return this[(Math.random() * this.length) | 0];
 }
 
+Planets.GeneratePlanetName = function() {
+	return Planets.const.planetNames.prefix[ 
+			(Math.random() * Planets.const.planetNames.prefix.length) | 0] + " " +
+		Planets.const.planetNames.names[
+			(Math.random() * Planets.const.planetNames.names.length) | 0] + " " +
+		Planets.const.planetNames.postfix[ 
+			(Math.random() * Planets.const.planetNames.postfix.length) | 0];
+}
+
 var Store = {
 
 	uidIndex : 0,

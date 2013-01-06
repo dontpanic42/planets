@@ -1,3 +1,5 @@
+
+
 var PI2 = Math.PI * 2;
 var PID4 = PI2 / 4;
 var PID1024 = PI2 / 1024;
@@ -5,106 +7,6 @@ var PID180 = 180 / (Math.PI);
 
 var debug = true;
 var debugAI = false;
-
-/***********************************************************************
- * Glaxy Builder
- **********************************************************************/
-
-Planets.Build = function(game, viewport) {
-	var avgGapX = 300;
-	var avgGapY = 300;
-	var rndGapX = 200;
-	var rndGapY = 160;
-	var avgSize = 40;
-	var rndSize = 40;
-
-	var w = viewport.w, h = viewport.h;
-
-	var resX = (w / (avgGapX)) | 0;
-	var resY = (h / (avgGapY)) | 0;
-
-
-	var first, last;
-
-	var rndx, rndy, rnds, o, cache = new Array(resX);
-	for(var x = 1; x < resX; x++) {
-		cache[x] = new Array(resY);
-		for(var y = 1; y < resY; y++) {
-			rndx = ((x * avgGapX) - (rndGapX/2) + (Math.random() * rndGapX)) | 0;
-			rndy = ((y * avgGapY) - (rndGapY/2) + (Math.random() * rndGapY)) | 0;
-			rnds = (avgSize - (rndSize / 2) + (Math.random() * rndSize)) | 0;
-			o = new Planets.Renderable.Planet({x: rndx, y: rndy}, rnds, Planets.GeneratePlanetName());
-			//game.push(o);
-			//game.bgPush(o);
-			game.fxLayer.include(o);
-			game.bgLayer.include(o, "bgUpdate", "bgRender");
-			game.fgLayer.include(o, null, "renderUI");
-
-			if(x == 1 && y == 1) first = o;
-			if(x == resX-1 && y == resY-1) last = o;
-
-			cache[x][y] = o;
-			if(cache[x][y-1]) {
-				o.connect(cache[x][y-1]);
-				cache[x][y-1].connect(o);
-			}
-
-			if(cache[x-1] && cache[x-1][y-1]) {
-				o.connect(cache[x-1][y-1]);
-				cache[x-1][y-1].connect(o);
-			}
-
-			if(cache[x-1] && cache[x-1][y+1]) {
-				o.connect(cache[x-1][y+1]);
-				cache[x-1][y+1].connect(o);
-			}
-
-			if(cache[x-1] && cache[x-1][y]) {
-				o.connect(cache[x-1][y]);
-				cache[x-1][y].connect(o);
-			}
-
-
-		}
-	}
-
-	if(first && last) {
-
-			//Spawn player in the top left corner
-			first.owner = Fraction.Player;
-			Planets.Build.spawnRandom(game, Fraction.Player, first);
-			for(var i = 0; i < first.connections.length; i++) {
-				first.connections[i].owner = Fraction.Player;
-				Planets.Build.spawnRandom(game, Fraction.Player, first.connections[i]);
-			}
-
-			//Spawn enemy in the bottom right corner
-			last.owner = Fraction.Enemy;
-			Planets.Build.spawnRandom(game, Fraction.Enemy, last);
-			game.skynet.addPlanet(last);
-			for(var i = 0; i < first.connections.length; i++) {
-				last.connections[i].owner = Fraction.Enemy;
-				Planets.Build.spawnRandom(game, Fraction.Enemy, last.connections[i]);
-				game.skynet.addPlanet(last.connections[i]);
-			}
-	}
-}
-
-Planets.Build.spawnRandom = function(game, fraction, planet) {
-	var rnd = 5;// Math.round(Math.random() * 200) + 2;
-	for(var i = 0; i < rnd; i++) {
-		planet.spawnShip(game, fraction)
-	}
-}
-
-Planets.GeneratePlanetName = function() {
-	return Planets.const.planetNames.prefix[ 
-			(Math.random() * Planets.const.planetNames.prefix.length) | 0] + " " +
-		Planets.const.planetNames.names[
-			(Math.random() * Planets.const.planetNames.names.length) | 0] + " " +
-		Planets.const.planetNames.postfix[ 
-			(Math.random() * Planets.const.planetNames.postfix.length) | 0];
-}
 
 /***********************************************************************
  * A* Pathfinder
@@ -297,7 +199,7 @@ Planets.Main.prototype.init = function() {
 
 	this.skynetUpdate = new Planets.Animation.Burst(Planets.const.skynetConfig.updateRate);
 
-	Planets.Build(this, this.viewport);
+	Planets.Level.generate(this, this.viewport);
 
 	Planets.Renderable.Missile.cache = new Planets.Renderable.MissileCache();
 
@@ -306,6 +208,7 @@ Planets.Main.prototype.init = function() {
 
 Planets.Main.prototype.start = function() {
 	this.interval = setInterval(this.loop.bind(this), Planets.const.updateInterval);
+	console.log("Starting game loop.", this.w, this.h);
 }
 
 Planets.Main.prototype.stop = function() {
@@ -314,8 +217,7 @@ Planets.Main.prototype.stop = function() {
 
 Planets.Main.prototype.loop = function() {
 
-	var deltaTime = Date.now() - this.lastUpdate;
-	if(deltaTime == 0) deltaTime = 1;
+	var deltaTime = Math.max(1, Date.now() - this.lastUpdate);
 	this.lastUpdate = Date.now();
 	var gameTime  = this.lastUpdate - this.firstUpdate;
 
@@ -324,8 +226,7 @@ Planets.Main.prototype.loop = function() {
 
 	if(debug) DebugOutput.fpsTimer.updateStart();
 
-	if(this.skynetUpdate.next(deltaTime))
-		this.skynet.evaluate();
+	this.skynetUpdate.next() && this.skynet.evaluate();
 
 	this.fxLayer.update(this, this.viewport, deltaTime, gameTime);
 	this.bgLayer.update(this, this.viewport, deltaTime, gameTime);
@@ -379,7 +280,6 @@ Planets.Renderable.Planet = function(position, radius, name) {
 
 	this.ships = Store.create(Fractions.length);
 
-	//this.shipCount = new Array(Fractions.length); 
 	this.shipSelected = (new Array(Fractions.length)).init(0); 
 
 	//Ownership stuff
@@ -395,7 +295,7 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	//Properties of path preview
 	this.path = null;
 }
-// Planets.Renderable.Planet.colors = ["rgb(109,133,193)","rgb(173,116,109)","rgb(239,175,65)"];
+
 Planets.Renderable.Planet.colors = Planets.const.planetForegroundColors;
 Planets.Renderable.Planet.prototype = new Planets.Renderable();
 Planets.Renderable.Planet.prototype.constructor = Planets.Renderable.Planet;
@@ -621,11 +521,12 @@ Planets.Renderable.Planet.prototype.renderUI = function(game, viewport, context,
 	context.strokeStyle = Planets.const.planetNameBorderColor;
 	context.lineWidth = 1;
 	context.font = 'bold 16pt Verdana';
-	var dim = (context.measureText(this.name).width / 2) | 0;
+	x -= (context.measureText(this.name).width / 2) | 0;
 	context.textBaseline = "bottom";
 
-	context.fillText(this.name, x - dim, y - r - 16);
-	context.strokeText(this.name, x - dim, y - r - 16);
+
+	context.fillText(this.name, x, y - r - 16);
+	context.strokeText(this.name, x, y - r - 16);
 }
 
 Planets.Renderable.Planet.prototype.renderPath = function(context, origin, target) {
@@ -991,7 +892,6 @@ Planets.Skynet = function() {
 }
 
 Planets.Skynet.prototype.evaluate = function() {
-
 	this.updateLists();
 
 	this.redistributeCoreShips();
@@ -1043,7 +943,6 @@ Planets.Skynet.prototype.redistributeCoreShips = function() {
 	var p, c;
 	for(var i = 0; i < this.core.length; i++) {
 		p = this.core[i];
-		// c = p.shipCount[this.me] - this.const.baseAmount;
 		c = p.ships[this.me].size - this.const.baseAmount;
 		if(c <= 0) continue;
 
@@ -1086,10 +985,8 @@ Planets.Skynet.prototype.evaluateCurrentTargets = function() {
 
 	//check if there are still ships at inactive targets...
 	for(var i in this.i_targets) {
-		// if(this.i_targets[i].shipCount[this.me] > 0) {
 		if(this.i_targets[i].ships[this.me].size > 0) {
 			this.free.push({
-				// count: this.i_targets[i].shipCount[this.me],
 				count: this.i_targets[i].ships[this.me].size,
 				origin: this.i_targets[i]
 			});
@@ -1179,8 +1076,6 @@ Planets.Skynet.prototype.isBorderPlanet = function(planet) {
 }
 
 Planets.Skynet.prototype.getRequiredShips = function(planet) {
-	// var mytroops = planet.shipCount[this.me];
-	// var enemytroops = planet.shipCount[Fraction.Player];
 	var mytroops = planet.ships[this.me].size;
 	var enemytroops = planet.ships[Fraction.Player].size;
 	for(var i = 0; i < planet.connections.length; i++) {
