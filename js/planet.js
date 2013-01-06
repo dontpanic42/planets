@@ -1149,8 +1149,8 @@ Planets.Renderable.DragAnimation.prototype.render = function(game, viewport, con
 	if(!game.mouse.down || !game.mouse.currentDown || !game.mouse.currentDown.shipSelected[Fraction.Player]) return;
 
 	context.beginPath();
-	context.strokeStyle = "#ffffff";
-	context.fillStyle = "rgba(0, 0, 0, 0.8)";
+	context.strokeStyle = Planets.const.dragTargetBorderColor;
+	context.fillStyle = Planets.const.dragTargetFillColor;
 	context.lineWidth = 2;
 
 	if(game.selected !== null && game.selected != game.mouse.currentDown) {
@@ -1167,7 +1167,7 @@ Planets.Renderable.DragAnimation.prototype.render = function(game, viewport, con
 		context.stroke();
 
 		// console.log(txt);
-		context.fillStyle = "#ffffff";
+		context.fillStyle = Planets.const.dragTargetFontColor;
 		context.fillText(this.dropText, 
 			game.selected.position.x - this.dropTextSize, 
 			game.selected.position.y);

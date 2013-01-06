@@ -59,6 +59,9 @@ Planets.const = {
 		neighbourTroopEstimation : 0.1
 	},
 
+	//Multiplicator for mouse wheel delta
+	deltaDamping : 0.3,
+
 	/********* COLORS ********/
 	planetForegroundColors : 	["rgb(232, 221, 203)",
 								 "rgb(205, 179, 128)",
@@ -76,6 +79,9 @@ Planets.const = {
 	shipExhaustColor : 			"rgba(255, 255, 255, 0.5)",
 	missileColor : 				"rgba(255, 255, 255, 1.0)",
 	viewportBackgroundColor : 	"rgba( 85,  98, 112, 1.0)",
+	dragTargetBorderColor : 	 "rgb(  0,   0,   0)",
+	dragTargetFillColor : 		"rgba(255, 255, 255, 0.6)",
+	dragTargetFontColor :  		 "rgb(  0,   0,   0)",
 
 
 	//http://de.wikipedia.org/wiki/Liste_von_Sternennamen	;-)

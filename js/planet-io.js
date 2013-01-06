@@ -173,7 +173,7 @@ Planets.Mouse.prototype.handler = function(event) {
 
 Planets.Mouse.prototype.wheelHandler = function(event, delta) {
 	event.preventDefault();
-	this.delta += delta;
+	this.delta += Planets.const.deltaDamping * delta;
 }
 
 Planets.Mouse.prototype.downHandler = function(event) {
