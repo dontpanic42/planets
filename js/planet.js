@@ -127,6 +127,13 @@ Planets.Animation.Linear.prototype.next = function() {
 	return this.current;
 }
 
+Planets.Animation.Linear.prototype.reset = function(a, b, speed) {
+	this.circle = false;
+	this.start = Date.now();
+	this.a = a;
+	this.b = b;
+}
+
 Planets.Animation.Linear.prototype.switch = function() {
 	var tmp = this.a;
 	this.a = this.b;
@@ -209,6 +216,7 @@ Planets.Main.prototype.init = function() {
 	Planets.Renderable.Missile.cache = new Planets.Renderable.MissileCache();
 
 	this.fxLayer.include(Planets.Renderable.Missile.cache);
+	this.fgLayer.include(new Planets.Renderable.DragAnimation());
 }
 
 Planets.Main.prototype.start = function() {
@@ -1122,4 +1130,58 @@ Planets.Skynet.prototype.getDebug = function(planet) {
 
 	return str + "Unknown Area";
 }
+
+/***********************************************************************
+ * UI Drag Animation
+ **********************************************************************/
+
+
+Planets.Renderable.DragAnimation = function() {
+	this.animation = new Planets.Animation.Linear(15, 20, true, 8.0);
+	this.dropText = "Move here";
+	this.dropTextSize = null;
+}
+
+Planets.Renderable.DragAnimation.prototype = new Planets.Renderable();
+Planets.Renderable.DragAnimation.prototype.constructor = Planets.Renderable.DragAnimation;
+
+Planets.Renderable.DragAnimation.prototype.render = function(game, viewport, context, deltaTime, gameTime) {
+	if(!game.mouse.down || !game.mouse.currentDown || !game.mouse.currentDown.shipSelected[Fraction.Player]) return;
+
+	context.beginPath();
+	context.strokeStyle = "#ffffff";
+	context.fillStyle = "rgba(0, 0, 0, 0.8)";
+	context.lineWidth = 2;
+
+	if(game.selected !== null && game.selected != game.mouse.currentDown) {
+		//Ready to drop
+
+		context.font = "bold 12pt Verdana";
+		context.textBaseline = "middle";
+
+		this.dropTextSize = this.dropTextSize || ((context.measureText(this.dropText).width / 2) | 0);
+		var rad = Math.max(this.dropTextSize + 20, game.selected.radius + 20);
+
+		context.arc(game.selected.position.x, game.selected.position.y, rad, 0, PI2);
+		context.fill();
+		context.stroke();
+
+		// console.log(txt);
+		context.fillStyle = "#ffffff";
+		context.fillText(this.dropText, 
+			game.selected.position.x - this.dropTextSize, 
+			game.selected.position.y);
+
+	} else {
+		//Moving
+		context.arc(
+			game.mouse.position.x, 
+			game.mouse.position.y, 
+			this.animation.next(), 0, PI2);
+		//context.fill();
+		context.stroke();
+	}
+
+}
+
 

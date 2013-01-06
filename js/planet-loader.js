@@ -89,8 +89,8 @@ var Loader = {
 		.appendTo(this.overlay);
 		this.loadContainer.css({
 			position : "absolute",
-			width : 400,
-			left : ($(window).width() - 400) / 2,
+			width : 250,
+			left : ($(window).width() - 250) / 2,
 			top  : ($(window).height() - this.loadContainer.outerHeight()) / 2,
 			zIndex : 20
 		});
@@ -112,7 +112,6 @@ var Loader = {
 					this.spinner.get(0).src = "img/error.png";
 					break;
 				case "start":
-				console.log("Setting imag: start");
 					this.spinner.get(0).src = "img/start.png";
 					break;
 			}

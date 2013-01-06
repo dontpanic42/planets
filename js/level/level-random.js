@@ -104,7 +104,7 @@ Planets.Level = {
 	},
 
 	getDescription : function() {
-		return "A random generated galaxy awaits you.<br> Your task: Kill everyone except yourself.";
+		return "A random generated galaxy awaits you.<br> Your task: Kill everyone except yourself. Conquer all enemy planets.";
 	},
 
 	checkEndCondition : function(game, viewport) {
