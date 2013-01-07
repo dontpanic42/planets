@@ -94,8 +94,8 @@ Planets.Level = {
 
 	getSize : function() {
 		return {
-			w : 2000,
-			h : 2000
+			w : 3000,
+			h : 3000
 		};
 	},
 

@@ -234,10 +234,12 @@ Planets.Main.prototype.loop = function() {
 	this.lastUpdate = Date.now();
 	var gameTime  = this.lastUpdate - this.firstUpdate;
 
-	this.viewport.handleInput(this.mouse, this.key, this.touch);
-	this.viewport.clear();
 
 	if(debug) DebugOutput.fpsTimer.updateStart();
+	
+	this.viewport.handleInput(this.mouse, this.key, this.touch);
+	this.viewport.clear();
+	
 
 	this.skynetUpdate.next() && this.skynet.evaluate();
 
@@ -450,6 +452,8 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 
 	if(!this.mouseOver && game.selected == this) game.selected = null;
 	if( this.mouseOver && game.selected != this) game.selected = this;
+
+	this.shipSelected[Fraction.Player] = Math.min(this.shipSelected[Fraction.Player], this.ships[Fraction.Player].size);
 
 	if(this.mouseOver) {
 		//Preview possible path to this planet
