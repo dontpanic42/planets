@@ -305,16 +305,12 @@ Planets.Renderable.Planet = function(position, radius, name) {
 
 	this.shipSelected = (new Array(Fractions.length)).init(0); 
 
-	// Planets.LocalEvent.subscribe('over', this.handleLocalEvent.bind(this), 
-	// 	position.x - radius,
-	// 	position.y - radius,
-	// 	position.x + radius,
-	// 	position.y + radius);
-	Planets.LocalEvent.subscribe('over', this.handleLocalEvent.bind(this), 
+	Planets.Event.subscribe('over', this.handleLocalEvent.bind(this), 
 		position.x - radius,
 		position.y - radius,
 		position.x + radius,
 		position.y + radius);
+	Planets.Event.subscribe('delta', this.handleLocalEvent.bind(this));
 
 	//Ownership stuff
 	this.ownerChangeStart = null;
@@ -434,35 +430,28 @@ Planets.Renderable.Planet.prototype.checkSpawn = function(game) {
 	}
 }
 
-Planets.Renderable.Planet.prototype.handleLocalEvent = function(type) {
-	if(type == "over")
-		this.mouseOver = true;
-	else
-		this.mouseOver = false;
+Planets.Renderable.Planet.prototype.handleLocalEvent = function(type, delta) {
+	switch(type) {
+		case "over":
+			this.mouseOver = true;
+			break;
+		case "out":
+			this.mouseOver = false;
+			break;
+		case "delta":
+			this.mouseOver && (this.shipSelected[Fraction.Player] = Math.max(0, Math.min(
+				this.shipSelected[Fraction.Player] + delta, 
+				this.ships[Fraction.Player].size)));
+			break;
+	}
 }
 
 Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime, gameTime) {
-	// var pos = game.mouse.position;
-	// if( pos.x >= this.position.x - this.radius &&
-	// 	pos.x <= this.position.x + this.radius &&
-	// 	pos.y >= this.position.y - this.radius &&
-	// 	pos.y <= this.position.y + this.radius) {
-	// 	game.selected = this;
-	// 	this.mouseOver = true;
-	// } else {
-	// 	if(game.selected == this)
-	// 		game.selected = null;
-	// 	this.mouseOver = false;
-	// }
 
 	if(!this.mouseOver && game.selected == this) game.selected = null;
 	if( this.mouseOver && game.selected != this) game.selected = this;
 
 	if(this.mouseOver) {
-		this.shipSelected[Fraction.Player] = Math.max(0, Math.min(
-			this.shipSelected[Fraction.Player] + game.mouse.getClearDelta(), 
-			this.ships[Fraction.Player].size));
-
 		//Preview possible path to this planet
 		if(game.mouse.down && game.mouse.currentDown != this && !this.path)
 			this.showPathPreview(Planets.Path(game.mouse.currentDown, this));

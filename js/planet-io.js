@@ -142,25 +142,26 @@ Planets.Mouse = function(game, viewport) {
 	viewport.jq_canvas.bind('mousedown', this.downHandler.bind(this));
 	viewport.jq_canvas.bind('mouseup', this.upHandler.bind(this));
 
-	Planets.LocalEvent.add('over', viewport.w, viewport.h);
-	Planets.LocalEvent.add('over_a', viewport.vw, viewport.vh);
+	Planets.Event.add('over', viewport.w, viewport.h);
+	Planets.Event.add('over_a', viewport.vw, viewport.vh);
+	Planets.Event.add('delta');
 
-	Planets.LocalEvent.subscribe('over_a', viewport.moveUp.bind(viewport), 
+	Planets.Event.subscribe('over_a', viewport.moveUp.bind(viewport), 
 			0, 
 			viewport.vh - Planets.const.hotCornerSize, 
 			viewport.vw, 
 			viewport.vh);
-	Planets.LocalEvent.subscribe('over_a', viewport.moveDown.bind(viewport), 
+	Planets.Event.subscribe('over_a', viewport.moveDown.bind(viewport), 
 			0, 
 			0, 
 			viewport.vw, 
 			Planets.const.hotCornerSize);
-	Planets.LocalEvent.subscribe('over_a', viewport.moveLeft.bind(viewport), 
+	Planets.Event.subscribe('over_a', viewport.moveLeft.bind(viewport), 
 			0, 
 			0, 
 			Planets.const.hotCornerSize, 
 			viewport.vh);
-	Planets.LocalEvent.subscribe('over_a', viewport.moveRight.bind(viewport), 
+	Planets.Event.subscribe('over_a', viewport.moveRight.bind(viewport), 
 			viewport.vw - Planets.const.hotCornerSize, 
 			0, 
 			viewport.vw, 
@@ -180,16 +181,15 @@ Planets.Mouse = function(game, viewport) {
 }
 
 Planets.Mouse.prototype.dispatchEvents = function() {
-	Planets.LocalEvent.trigger('over', this.position.x, this.position.y).delta('out');
-	Planets.LocalEvent.fire('over_a', this.absolute.x, this.absolute.y);
-}
+	Planets.Event.trigger('over', this.position.x, this.position.y).delta('out');
+	Planets.Event.fire('over_a', this.absolute.x, this.absolute.y);
 
-// Returns the delat and clears it (sets it to 0);
-Planets.Mouse.prototype.getClearDelta = function() {
-	if( (this.delta < 1 && this.delta > 0) || (this.delta < 0 && this.delta > -1) ) return 0;
-	var d = this.delta;
-	this.delta = 0;
-	return Math.round(d);
+	//Fire mouse wheel event
+	if(this.delta < -1 || this.delta > 1) {
+		var d = Math.round(this.delta);
+		this.delta = 0;
+		d && Planets.Event.trigger('delta', d);
+	}
 }
 
 Planets.Mouse.prototype.handler = function(event) {
@@ -243,35 +243,73 @@ Planets.Keymap.prototype.handlerUp = function(event) {
 }
 
 /***********************************************************************
- * Generic Quad (better: Rect :-) ) tree implementation
+ * Event handling. Event mehtods are overloaded by LocalEvents methods,
+ * which use an QuadTree to dispatch events on koordinates.
  **********************************************************************/
 
-Planets.LocalEvent = {
+Planets.Event = {
 
 	events : {},
 
-	add : function(name, w, h) {
-		this.events[name] = new Planets.QuadTree(0, 0, w, h, 4);
-		return this.events[name];
+	add : function(name) {
+		if(arguments.length > 1) {
+			this.LocalEvent.add.apply(this.LocalEvent, arguments);
+		} else {
+			this.events[name] = [];
+		}
 	},
 
-	//Fires an event only if not already fired on the
-	//last check. Can be used with "delta".
-	trigger : function(name, x, y) {
-		if(!(name in this.events)) return;
-		this.events[name].trigger(x, y, [name]);
-		return this.events[name];
+	subscribe : function(name, callback) {
+		if(arguments.length > 2) {
+			this.LocalEvent.subscribe.apply(this.LocalEvent, arguments);
+		} else {
+			if(name in this.events)
+				this.events[name].push(callback);
+		}
 	},
 
-	//Fires an event on every positive check.
-	fire : function(name, x, y) {
-		if(!(name in this.events)) return;
-		this.events[name].fire(x, y, [name]);
-		return this.events[name];
+	fire : function() {
+		this.LocalEvent.fire.apply(this.LocalEvent, arguments);
 	},
 
-	subscribe : function(name, callback, x1, y1, x2, y2) {
-		this.events[name].addElement(callback, x1, y1, x2, y2);
+	trigger : function(name) {
+		if(name in this.events) {
+			var args = Array.prototype.slice.call(arguments);
+			for(var i = 0; i < this.events[name].length; i++) {
+				this.events[name][i].apply(this, args);
+			}
+		} else {
+			return this.LocalEvent.trigger.apply(this.LocalEvent, arguments);
+		}
+	},
+
+	LocalEvent : {
+
+		events : {},
+
+		add : function(name, w, h) {
+			this.events[name] = new Planets.QuadTree(0, 0, w, h, 4);
+			return this.events[name];
+		},
+
+		//Fires an event only if not already fired on the
+		//last check. Can be used with "delta".
+		trigger : function(name, x, y) {
+			if(!(name in this.events)) return;
+			this.events[name].trigger(x, y, [name]);
+			return this.events[name];
+		},
+
+		//Fires an event on every positive check.
+		fire : function(name, x, y) {
+			if(!(name in this.events)) return;
+			this.events[name].fire(x, y, [name]);
+			return this.events[name];
+		},
+
+		subscribe : function(name, callback, x1, y1, x2, y2) {
+			this.events[name].addElement(callback, x1, y1, x2, y2);
+		}
 	}
 }
 
@@ -293,12 +331,14 @@ Planets.QuadTree.prototype.addElement = function(callback, x1, y1, x2, y2) {
 	this.root.addElement(callback, this.depth);
 }
 
+//Fires events continusly 
 Planets.QuadTree.prototype.fire = function(x, y, args) {
 	var tmp = this.root.trigger(x, y, []);
 	for(var i = 0; i < tmp.length; i++)
 		tmp[i].callback.apply(tmp[i], args);
 }
 
+//Fires events only the first time they occur.
 Planets.QuadTree.prototype.trigger = function(x, y, args) {
 	this.deltaNow = this.root.trigger(x, y, []);
 	for(var i = 0; i < this.deltaNow.length; i++) {
