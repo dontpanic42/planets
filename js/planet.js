@@ -310,6 +310,11 @@ Planets.Renderable.Planet = function(position, radius, name) {
 	// 	position.y - radius,
 	// 	position.x + radius,
 	// 	position.y + radius);
+	Planets.LocalEvent.subscribe('over', this.handleLocalEvent.bind(this), 
+		position.x - radius,
+		position.y - radius,
+		position.x + radius,
+		position.y + radius);
 
 	//Ownership stuff
 	this.ownerChangeStart = null;
@@ -429,26 +434,29 @@ Planets.Renderable.Planet.prototype.checkSpawn = function(game) {
 	}
 }
 
-// Planets.Renderable.Planet.prototype.handleLocalEvent = function(type, x, y) {
-// 	this.mouseOver = true;
-// }
+Planets.Renderable.Planet.prototype.handleLocalEvent = function(type) {
+	if(type == "over")
+		this.mouseOver = true;
+	else
+		this.mouseOver = false;
+}
 
 Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime, gameTime) {
-	var pos = game.mouse.position;
-	if( pos.x >= this.position.x - this.radius &&
-		pos.x <= this.position.x + this.radius &&
-		pos.y >= this.position.y - this.radius &&
-		pos.y <= this.position.y + this.radius) {
-		game.selected = this;
-		this.mouseOver = true;
-	} else {
-		if(game.selected == this)
-			game.selected = null;
-		this.mouseOver = false;
-	}
+	// var pos = game.mouse.position;
+	// if( pos.x >= this.position.x - this.radius &&
+	// 	pos.x <= this.position.x + this.radius &&
+	// 	pos.y >= this.position.y - this.radius &&
+	// 	pos.y <= this.position.y + this.radius) {
+	// 	game.selected = this;
+	// 	this.mouseOver = true;
+	// } else {
+	// 	if(game.selected == this)
+	// 		game.selected = null;
+	// 	this.mouseOver = false;
+	// }
 
-	// if(!this.mouseOver && game.selected == this) game.selected = null;
-	// if( this.mouseOver && game.selected != this) game.selected = this;
+	if(!this.mouseOver && game.selected == this) game.selected = null;
+	if( this.mouseOver && game.selected != this) game.selected = this;
 
 	if(this.mouseOver) {
 		this.shipSelected[Fraction.Player] = Math.max(0, Math.min(
@@ -518,7 +526,6 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context, d
 
 Planets.Renderable.Planet.prototype.renderUI = function(game, viewport, context, deltaTime, gameTime) {
 	if(!this.mouseOver) return;
-	// this.mouseOver = false;
 
 	var x = this.position.x, y = this.position.y, r = this.radius;
 

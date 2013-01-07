@@ -180,8 +180,8 @@ Planets.Mouse = function(game, viewport) {
 }
 
 Planets.Mouse.prototype.dispatchEvents = function() {
-	Planets.LocalEvent.trigger('over', this.position.x, this.position.y);
-	Planets.LocalEvent.trigger('over_a', this.absolute.x, this.absolute.y);
+	Planets.LocalEvent.trigger('over', this.position.x, this.position.y).delta('out');
+	Planets.LocalEvent.fire('over_a', this.absolute.x, this.absolute.y);
 }
 
 // Returns the delat and clears it (sets it to 0);
@@ -252,11 +252,22 @@ Planets.LocalEvent = {
 
 	add : function(name, w, h) {
 		this.events[name] = new Planets.QuadTree(0, 0, w, h, 4);
+		return this.events[name];
 	},
 
+	//Fires an event only if not already fired on the
+	//last check. Can be used with "delta".
 	trigger : function(name, x, y) {
 		if(!(name in this.events)) return;
-		this.events[name].trigger(x, y);
+		this.events[name].trigger(x, y, [name]);
+		return this.events[name];
+	},
+
+	//Fires an event on every positive check.
+	fire : function(name, x, y) {
+		if(!(name in this.events)) return;
+		this.events[name].fire(x, y, [name]);
+		return this.events[name];
 	},
 
 	subscribe : function(name, callback, x1, y1, x2, y2) {
@@ -269,8 +280,10 @@ Planets.LocalEvent = {
  **********************************************************************/
 
 Planets.QuadTree = function(x1, y1, x2, y2, depth) { 
-	this.depth = 1; //depth;
+	this.depth = depth;
 	this.root = new Planets.QuadTree.Node(x1, y1, x2, y2);
+	this.deltaLast = [];
+	this.deltaNow = [];
 }
 
 Planets.QuadTree.prototype.addElement = function(callback, x1, y1, x2, y2) {
@@ -280,10 +293,35 @@ Planets.QuadTree.prototype.addElement = function(callback, x1, y1, x2, y2) {
 	this.root.addElement(callback, this.depth);
 }
 
-Planets.QuadTree.prototype.trigger = function(x, y) {
+Planets.QuadTree.prototype.fire = function(x, y, args) {
+	var tmp = this.root.trigger(x, y, []);
+	for(var i = 0; i < tmp.length; i++)
+		tmp[i].callback.apply(tmp[i], args);
+}
+
+Planets.QuadTree.prototype.trigger = function(x, y, args) {
+	this.deltaNow = this.root.trigger(x, y, []);
+	for(var i = 0; i < this.deltaNow.length; i++) {
+		if(this.deltaLast.indexOf(this.deltaNow[i]) != -1) continue;
+		this.deltaNow[i].callback.apply(this.deltaNow[i], args);
+	}
+
+	var tmp = this.deltaLast;
+	this.deltaLast = this.deltaNow;
+	this.deltaNow = tmp;
+
+	return this;
+}
+
+Planets.QuadTree.prototype.delta = function() {
+
 	var args = Array.prototype.slice.call(arguments);
-	x = args.shift(); y = args.shift();
-	this.root.trigger(x, y, args);
+
+	for(var i = 0; i < this.deltaNow.length; i++) {
+		if(this.deltaLast.indexOf(this.deltaNow[i]) == -1) {
+			this.deltaNow[i].callback.apply(this.deltaNow[i], args);
+		}
+	}
 }
 
 Planets.QuadTree.Node = function(x1, y1, x2, y2) {
@@ -341,28 +379,29 @@ Planets.QuadTree.Node.prototype.addElement = function(node, depth) {
 		this.childrenBR.addElement(node, depth);
 	}
 
-
 }
 
-Planets.QuadTree.Node.prototype.trigger = function(x, y, args) {
+Planets.QuadTree.Node.prototype.trigger = function(x, y, result) {
 	if(this.leaves && this.leaves.size) {
 		this.leaves.each(function() {
 			if(this.x1 <= x && this.x2 > x && 
 			   this.y1 <= y && this.y2 > y) {
-				this.callback.apply(this, args);
+				result.push(this);
 			}
 		});
 	} else {
 		if(x <= this.x && y <= this.y) {
-			this.childrenTLC && this.childrenTL.trigger(x, y, args);
+			this.childrenTLC && (result = this.childrenTL.trigger(x, y, result));
 		} else if(x > this.x && y <= this.y) {
-			this.childrenTRC && this.childrenTR.trigger(x, y, args);
+			this.childrenTRC && (result = this.childrenTR.trigger(x, y, result));
 		} else if(x <= this.x && y > this.y) {
-			this.childrenBLC && this.childrenBL.trigger(x, y, args);
+			this.childrenBLC && (result = this.childrenBL.trigger(x, y, result));
 		} else {
-			this.childrenBRC && this.childrenBR.trigger(x, y, args);
+			this.childrenBRC && (result = this.childrenBR.trigger(x, y, result));
 		}
 	}
+
+	return result;
 }
 
 
