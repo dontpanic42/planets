@@ -36,9 +36,7 @@ Planets.Viewport = function(game, w, h) {
 	this.offset = {x: 0, y: 0};
 
 	this.moveSpeed = Planets.const.scrollSpeed;		// Screen movement speed
-	this.moveCorner = Planets.const.hotCornerSize;	// Hot corner size
-
-	// this.bgUpdated = false;
+	//this.moveCorner = Planets.const.hotCornerSize;	// Hot corner size
 }
 
 Planets.Viewport.prototype.clear = function() {
@@ -80,14 +78,16 @@ Planets.Viewport.prototype.handleInput = function(mouse, keyboard, touch) {
 
 // Handle viewport offset when mouse is in hot corners
 Planets.Viewport.prototype.handleMouse = function(mouse) {
-	if(mouse.absolute.y < this.moveCorner) 	
-		this.moveDown();
-	if(mouse.absolute.y > this.vh - this.moveCorner) 
-		this.moveUp();
-	if(mouse.absolute.x < this.moveCorner) 
-		this.moveLeft();
-	if(mouse.absolute.x > this.vw - this.moveCorner) 
-		this.moveRight();
+	// if(mouse.absolute.y < this.moveCorner) 	
+	// 	this.moveDown();
+	// if(mouse.absolute.y > this.vh - this.moveCorner) 
+	// 	this.moveUp();
+	// if(mouse.absolute.x < this.moveCorner) 
+	// 	this.moveLeft();
+	// if(mouse.absolute.x > this.vw - this.moveCorner) 
+	// 	this.moveRight();
+
+	mouse.dispatchEvents();
 }
 
 // Handle viewport offset when arrow-keys are pressed
@@ -142,6 +142,29 @@ Planets.Mouse = function(game, viewport) {
 	viewport.jq_canvas.bind('mousedown', this.downHandler.bind(this));
 	viewport.jq_canvas.bind('mouseup', this.upHandler.bind(this));
 
+	Planets.LocalEvent.add('over', viewport.w, viewport.h);
+	Planets.LocalEvent.add('over_a', viewport.vw, viewport.vh);
+
+	Planets.LocalEvent.subscribe('over_a', viewport.moveUp.bind(viewport), 
+			0, 
+			viewport.vh - Planets.const.hotCornerSize, 
+			viewport.vw, 
+			viewport.vh);
+	Planets.LocalEvent.subscribe('over_a', viewport.moveDown.bind(viewport), 
+			0, 
+			0, 
+			viewport.vw, 
+			Planets.const.hotCornerSize);
+	Planets.LocalEvent.subscribe('over_a', viewport.moveLeft.bind(viewport), 
+			0, 
+			0, 
+			Planets.const.hotCornerSize, 
+			viewport.vh);
+	Planets.LocalEvent.subscribe('over_a', viewport.moveRight.bind(viewport), 
+			viewport.vw - Planets.const.hotCornerSize, 
+			0, 
+			viewport.vw, 
+			viewport.vh);
 
 	//position including offset calculation
 	this.position = {x: 0, y: 0};
@@ -154,6 +177,11 @@ Planets.Mouse = function(game, viewport) {
 	this.top  = viewport.jq_canvas.offset().top;
 	this.currentDown = null;	// Element on which the mousebutton was pressed down
 	this.down = false;
+}
+
+Planets.Mouse.prototype.dispatchEvents = function() {
+	Planets.LocalEvent.trigger('over', this.position.x, this.position.y);
+	Planets.LocalEvent.trigger('over_a', this.absolute.x, this.absolute.y);
 }
 
 // Returns the delat and clears it (sets it to 0);
@@ -213,3 +241,130 @@ Planets.Keymap.prototype.handlerUp = function(event) {
 	event.preventDefault();
 	this.keymap[event.keyCode] = false;
 }
+
+/***********************************************************************
+ * Generic Quad (better: Rect :-) ) tree implementation
+ **********************************************************************/
+
+Planets.LocalEvent = {
+
+	events : {},
+
+	add : function(name, w, h) {
+		this.events[name] = new Planets.QuadTree(0, 0, w, h, 4);
+	},
+
+	trigger : function(name, x, y) {
+		if(!(name in this.events)) return;
+		this.events[name].trigger(x, y);
+	},
+
+	subscribe : function(name, callback, x1, y1, x2, y2) {
+		this.events[name].addElement(callback, x1, y1, x2, y2);
+	}
+}
+
+/***********************************************************************
+ * Generic Quad (better: Rect :-) ) tree implementation
+ **********************************************************************/
+
+Planets.QuadTree = function(x1, y1, x2, y2, depth) { 
+	this.depth = 1; //depth;
+	this.root = new Planets.QuadTree.Node(x1, y1, x2, y2);
+}
+
+Planets.QuadTree.prototype.addElement = function(callback, x1, y1, x2, y2) {
+	(typeof callback == "object") || (callback = {
+			callback : callback, x1 : x1,
+			y1 : y1, x2 : x2, y2 : y2 });
+	this.root.addElement(callback, this.depth);
+}
+
+Planets.QuadTree.prototype.trigger = function(x, y) {
+	var args = Array.prototype.slice.call(arguments);
+	x = args.shift(); y = args.shift();
+	this.root.trigger(x, y, args);
+}
+
+Planets.QuadTree.Node = function(x1, y1, x2, y2) {
+	//Centerpoint
+	this.x = x1 + ( (x2 - x1) / 2 );
+	this.y = y1 + ( (y2 - y1) / 2 );
+
+	this.x1 = x1; this.x2 = x2; 
+	this.y1 = y1; this.y2 = y2;
+
+	this.childrenTL = null;
+	this.childrenTLC = 0;
+	this.childrenTR = null;
+	this.childrenTRC = 0;
+	this.childrenBL = null;
+	this.childrenBLC = 0;
+	this.childrenBR = null;
+	this.childrenBRC = 0;
+
+	this.leaves = null;
+}
+
+//Add receiver. Receivers should look like this:
+//{ x1: X, y1 : Y, x2 : X, y2 : Y, callback = function() ... }
+Planets.QuadTree.Node.prototype.addElement = function(node, depth) {
+	if(depth == 0) {
+		this.leaves || (this.leaves = Store.create());
+		this.leaves.add(node);
+		return;
+	}
+
+	depth--;
+
+	if(node.x1 <= this.x && node.y1 <= this.y && node.x2 > this.x1 && node.y2 > this.y1) {
+		this.childrenTL || (this.childrenTL = new Planets.QuadTree.Node(this.x1, this.y1, this.x, this.y));
+		this.childrenTLC++;
+		this.childrenTL.addElement(node, depth);
+	}
+
+	if(node.x1 <= this.x2 && node.y1 <= this.y && node.x2 > this.x && node.y2 > this.y1) {
+		this.childrenTR || (this.childrenTR = new Planets.QuadTree.Node(this.x, this.y1, this.x2, this.y));
+		this.childrenTRC++;
+		this.childrenTR.addElement(node, depth);
+	}
+
+	if(node.x1 <= this.x && node.y1 <= this.y2 && node.x2 > this.x1 && node.y2 > this.y) {
+		this.childrenBL || (this.childrenBL = new Planets.QuadTree.Node(this.x1, this.y, this.x, this.y2));
+		this.childrenBLC++;
+		this.childrenBL.addElement(node, depth);
+	}
+
+	if(node.x1 <= this.x2 && node.y1 <= this.y2 && node.x2 > this.x && node.y2 > this.y) {
+		this.childrenBR || (this.childrenBR = new Planets.QuadTree.Node(this.x, this.y, this.x2, this.y2));
+		this.childrenBRC++;		
+		this.childrenBR.addElement(node, depth);
+	}
+
+
+}
+
+Planets.QuadTree.Node.prototype.trigger = function(x, y, args) {
+	if(this.leaves && this.leaves.size) {
+		this.leaves.each(function() {
+			if(this.x1 <= x && this.x2 > x && 
+			   this.y1 <= y && this.y2 > y) {
+				this.callback.apply(this, args);
+			}
+		});
+	} else {
+		if(x <= this.x && y <= this.y) {
+			this.childrenTLC && this.childrenTL.trigger(x, y, args);
+		} else if(x > this.x && y <= this.y) {
+			this.childrenTRC && this.childrenTR.trigger(x, y, args);
+		} else if(x <= this.x && y > this.y) {
+			this.childrenBLC && this.childrenBL.trigger(x, y, args);
+		} else {
+			this.childrenBRC && this.childrenBR.trigger(x, y, args);
+		}
+	}
+}
+
+
+
+

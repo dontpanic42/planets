@@ -175,5 +175,12 @@ var Loader = {
 		this.overlay.fadeOut((function() {
 			this.game.start();
 		}).bind(this));
+
+		// var qt = new Planets.QuadTree(0, 0, 100, 100, 2);
+		// qt.addElement(function(ev) {
+		// 	console.log("hallo 1 1", ev);
+		// }, 1, 1, 35, 35);
+
+		// qt.trigger(34, 30, "Hallo Welt");
 	}
 };

@@ -305,6 +305,12 @@ Planets.Renderable.Planet = function(position, radius, name) {
 
 	this.shipSelected = (new Array(Fractions.length)).init(0); 
 
+	// Planets.LocalEvent.subscribe('over', this.handleLocalEvent.bind(this), 
+	// 	position.x - radius,
+	// 	position.y - radius,
+	// 	position.x + radius,
+	// 	position.y + radius);
+
 	//Ownership stuff
 	this.ownerChangeStart = null;
 	this.ownerApplicant = null;
@@ -423,6 +429,10 @@ Planets.Renderable.Planet.prototype.checkSpawn = function(game) {
 	}
 }
 
+// Planets.Renderable.Planet.prototype.handleLocalEvent = function(type, x, y) {
+// 	this.mouseOver = true;
+// }
+
 Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime, gameTime) {
 	var pos = game.mouse.position;
 	if( pos.x >= this.position.x - this.radius &&
@@ -437,6 +447,8 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 		this.mouseOver = false;
 	}
 
+	// if(!this.mouseOver && game.selected == this) game.selected = null;
+	// if( this.mouseOver && game.selected != this) game.selected = this;
 
 	if(this.mouseOver) {
 		this.shipSelected[Fraction.Player] = Math.max(0, Math.min(
@@ -506,8 +518,9 @@ Planets.Renderable.Planet.prototype.render = function(game, viewport, context, d
 
 Planets.Renderable.Planet.prototype.renderUI = function(game, viewport, context, deltaTime, gameTime) {
 	if(!this.mouseOver) return;
-	var x = this.position.x, y = this.position.y, r = this.radius;
+	// this.mouseOver = false;
 
+	var x = this.position.x, y = this.position.y, r = this.radius;
 
 	if(this.ships[Fraction.Player].size) {
 		context.beginPath();
