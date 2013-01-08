@@ -103,28 +103,28 @@ Planets.Viewport.prototype.handleKeydown = function(keyboard) {
 // Viewport movement methods
 Planets.Viewport.prototype.moveUp = function() {
 		this.game.bgLayer.invalidate();
-		this.offset.y -= this.moveSpeed;
+		this.offset.y -= (this.moveSpeed * Planets.Animation.frameDelay());
 		if(this.offset.y < this.vh - this.h) 
 			this.offset.y = (this.vh - this.h);
 }
 
 Planets.Viewport.prototype.moveDown = function() {
 		this.game.bgLayer.invalidate();
-		this.offset.y += this.moveSpeed;
+		this.offset.y += (this.moveSpeed * Planets.Animation.frameDelay());
 		if(this.offset.y > 0)
 			this.offset.y = 0;
 }
 
 Planets.Viewport.prototype.moveLeft = function() {
 		this.game.bgLayer.invalidate();
-		this.offset.x += this.moveSpeed;
+		this.offset.x += (this.moveSpeed * Planets.Animation.frameDelay());
 		if(this.offset.x > 0)
 			this.offset.x = 0;
 }
 
 Planets.Viewport.prototype.moveRight = function() {
 		this.game.bgLayer.invalidate();
-		this.offset.x -= this.moveSpeed;
+		this.offset.x -= (this.moveSpeed * Planets.Animation.frameDelay());
 		if(this.offset.x < this.vw - this.w)
 			this.offset.x = (this.vw - this.w);
 }

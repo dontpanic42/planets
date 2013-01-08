@@ -93,6 +93,25 @@ Planets.Path = function(start, destination) {
 
 Planets.Animation = function() { }
 
+Planets.Animation.last = 0;
+Planets.Animation.now = 0;
+Planets.Animation.fpsDelta = 0;
+
+Planets.Animation.update = function() {
+	this.last = this.now;
+	this.now = Date.now();
+
+	this.fpsDelta = (this.now - this.last) / Planets.const.updateInterval;
+}
+
+Planets.Animation.delta = function() {
+	return this.now - this.last;
+}
+
+Planets.Animation.frameDelay = function() {
+	return this.fpsDelta;
+}
+
 /**
  * Returns values between a and b, starting with a.
  * If circle is true, this animation will never finish.
@@ -123,16 +142,9 @@ Planets.Animation.Linear.prototype.next = function() {
 			return this.b;
 	}
 
-	this.current = this.a + ((Date.now() - this.start) * this.speed * this.direction);
+	this.current = this.a + ((Planets.Animation.now - this.start) * this.speed * this.direction);
 	return this.current;
 }
-
-// Planets.Animation.Linear.prototype.reset = function(a, b, speed) {
-// 	this.circle = false;
-// 	this.start = Date.now();
-// 	this.a = a;
-// 	this.b = b;
-// }
 
 Planets.Animation.Linear.prototype.switch = function() {
 	var tmp = this.a;
@@ -140,7 +152,7 @@ Planets.Animation.Linear.prototype.switch = function() {
 	this.b = tmp;
 
 	this.direction = -this.direction;
-	this.start = Date.now();
+	this.start = Planets.Animation.now;
 	this.current = this.a;
 }
 
@@ -155,7 +167,7 @@ Planets.Animation.Burst = function(interval, randomizeStart) {
 
 Planets.Animation.Burst.prototype.next = function() {
 	if(Date.now() - this.time > this.interval) {
-		this.time = Date.now();
+		this.time = Planets.Animation.now;
 		return true;
 	}
 
@@ -251,6 +263,8 @@ Planets.Main.prototype.loop = function() {
 		DebugOutput.fpsTimer.updateEnd();
 		DebugOutput.fpsTimer.renderStart();
 	}
+
+	Planets.Animation.update();
 
 	this.fxLayer.render(this, this.viewport, this.viewport.context, deltaTime, gameTime).invalidate();
 	this.fgLayer.render(this, this.viewport, this.viewport.context, deltaTime, gameTime).invalidate();
@@ -362,6 +376,8 @@ Planets.Renderable.Planet.prototype.moveSelectedShips = function(target, fractio
 		this.moveTo(path);
 		self.removeShip(this);
 	}, Math.min(this.ships[fraction].size, this.shipSelected[fraction]));
+
+	this.shipSelected[Fraction.Player] = Math.min(this.shipSelected[Fraction.Player], this.ships[Fraction.Player].size);
 }
 
 Planets.Renderable.Planet.prototype.getRandomEnemy = function(forFraction) {
@@ -452,8 +468,6 @@ Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime,
 
 	if(!this.mouseOver && game.selected == this) game.selected = null;
 	if( this.mouseOver && game.selected != this) game.selected = this;
-
-	this.shipSelected[Fraction.Player] = Math.min(this.shipSelected[Fraction.Player], this.ships[Fraction.Player].size);
 
 	if(this.mouseOver) {
 		//Preview possible path to this planet
