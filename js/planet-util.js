@@ -252,7 +252,15 @@ var PreRender = {
 				angle |= 0;
 				if(angle >=  360) angle -= 360;
 
-				context.drawImage(this.c, this.w * angle, 0, this.w, this.h, x - this.offsetX, y - this.offsetY, this.w, this.h);
+				context.drawImage(
+					this.c, 
+					this.w * angle, 
+					0, 
+					this.w, 
+					this.h, x - this.offsetX, 
+					y - this.offsetY, 
+					this.w, 
+					this.h);
 			}
 
 		}).init(w, h, renderCallback, args);

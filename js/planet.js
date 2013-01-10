@@ -10,7 +10,8 @@ var debugAI = false;
 
 Planets.stats = { 
 	ships : 	(new Array(Fractions.length)).init(0),
-	planets : 	(new Array(Fractions.length)).init(0)
+	planets : 	(new Array(Fractions.length)).init(0),
+	start : 0
 };
 
 /***********************************************************************
@@ -232,6 +233,7 @@ Planets.Main.prototype.init = function() {
 }
 
 Planets.Main.prototype.start = function() {
+	Planets.stats.start = Date.now();
 	this.interval = setInterval(this.loop.bind(this), Planets.const.updateInterval);
 	console.log("Starting game loop.", this.w, this.h);
 }
@@ -255,6 +257,8 @@ Planets.Main.prototype.loop = function() {
 
 	this.skynetUpdate.next() && this.skynet.evaluate();
 
+	Planets.Animation.update();
+
 	this.fxLayer.update(this, this.viewport, deltaTime, gameTime);
 	this.bgLayer.update(this, this.viewport, deltaTime, gameTime);
 
@@ -263,8 +267,6 @@ Planets.Main.prototype.loop = function() {
 		DebugOutput.fpsTimer.updateEnd();
 		DebugOutput.fpsTimer.renderStart();
 	}
-
-	Planets.Animation.update();
 
 	this.fxLayer.render(this, this.viewport, this.viewport.context, deltaTime, gameTime).invalidate();
 	this.fgLayer.render(this, this.viewport, this.viewport.context, deltaTime, gameTime).invalidate();
@@ -281,6 +283,10 @@ Planets.Main.prototype.loop = function() {
 		//Print fps
 		DebugOutput.fpsTimer.renderEnd();
 		DebugOutput.fpsTimer.show();
+
+		var date = new Date(Date.now() - Planets.stats.start);
+		DebugOutput.write("GT: ", date.getUTCHours() + ":" + date.getUTCMinutes() + ":" + date.getUTCSeconds());
+
 		DebugOutput.flush(this.viewport, this.viewport.context);
 	}
 
@@ -677,6 +683,15 @@ Planets.Renderable.Ship.preRenderShip = function(context, angle, color) {
  	context.bezierCurveTo(-6,  4, -2,  4,  6, 0);
  	context.bezierCurveTo(-2, -4, -6, -4, -6, 0);
 	context.fill();
+
+	var grd = context.createLinearGradient(6, -4, 6, 4);
+	grd.addColorStop(0.0, "rgba(255, 255, 255, 0.1)");
+	grd.addColorStop(0.5, "rgba(255, 255, 255, 0.4)");
+	grd.addColorStop(0.5, "rgba(255, 255, 255, 0.0)");
+	grd.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
+	context.fillStyle = grd;
+	context.fill();
+
 	context.restore();
 }
 
@@ -689,6 +704,14 @@ Planets.Renderable.Ship.preRenderShipAction = function(context, angle, color) {
  	context.moveTo(-4, 0);
  	context.bezierCurveTo(-4,  4,  0,  4,  8, 0);
  	context.bezierCurveTo( 0, -4, -4, -4, -4, 0);
+	context.fill();
+
+	var grd = context.createLinearGradient(8, -4, 8, 4);
+	grd.addColorStop(0.0, "rgba(255, 255, 255, 0.1)");
+	grd.addColorStop(0.5, "rgba(255, 255, 255, 0.4)");
+	grd.addColorStop(0.5, "rgba(255, 255, 255, 0.0)");
+	grd.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
+	context.fillStyle = grd;
 	context.fill();
 
 	context.beginPath();
@@ -1204,7 +1227,7 @@ Planets.Renderable.DragAnimation.prototype.render = function(game, viewport, con
 		context.arc(
 			game.mouse.position.x, 
 			game.mouse.position.y, 
-			this.animation.next(), 0, PI2);
+			20, 0, PI2);
 		//context.fill();
 		context.stroke();
 	}
