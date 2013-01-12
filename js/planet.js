@@ -346,11 +346,44 @@ Planets.Renderable.Planet = function(position, radius, name) {
 
 	//Properties of path preview
 	this.path = null;
+	this.preRender = null;
 }
 
 Planets.Renderable.Planet.colors = Planets.const.planetForegroundColors;
 Planets.Renderable.Planet.prototype = new Planets.Renderable();
 Planets.Renderable.Planet.prototype.constructor = Planets.Renderable.Planet;
+
+Planets.Renderable.Planet.prototype.init = function() {
+	this.preRender = PreRender.createFixed(this.radius*4, this.radius*4, this.preRenderPlanet.bind(this));
+	return this;
+}
+
+Planets.Renderable.Planet.prototype.preRenderPlanet = function(context) {
+	var x = this.radius * 2, y = this.radius * 2, r = this.radius;
+	
+	var grdInner = context.createRadialGradient(x, y, 5, x, y, r);
+	grdInner.addColorStop(0, Planets.const.planetCoreColor);
+	grdInner.addColorStop(1, this.color);
+
+	var grdOuter = context.createRadialGradient(x, y, r, x, y, r << 1);
+	grdOuter.addColorStop(0, Planets.const.planetGlowColor0);
+	grdOuter.addColorStop(1, Planets.const.planetGlowColor1);
+	
+	//glow
+	context.beginPath();
+	context.fillStyle = grdOuter;
+	context.arc(x, y, r << 1, 0, PI2);
+	context.fill();
+
+	//circle & inner
+	context.beginPath();
+	context.lineStyle = Planets.const.planetBorderColor;
+	context.lineWidth = 4;
+	context.fillStyle = grdInner;
+	context.arc(x, y, r, 0, PI2);
+	context.stroke();
+	context.fill();
+}
 
 Planets.Renderable.Planet.prototype.connect = function(planet) {
 	this.connections.push(planet);
@@ -602,32 +635,7 @@ Planets.Renderable.Planet.prototype.renderPath = function(context, origin, targe
 }
 
 Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context, deltaTime, gameTime) {
-	var x = this.position.x, y = this.position.y, r = this.radius;
-	if(!this.grdInner) {
-		this.grdInner = context.createRadialGradient(x, y, 5, x, y, r);
-		this.grdInner.addColorStop(0, Planets.const.planetCoreColor);
-		this.grdInner.addColorStop(1, this.color);
-
-		this.grdOuter = context.createRadialGradient(x, y, r, x, y, r << 1);
-		this.grdOuter.addColorStop(0, Planets.const.planetGlowColor0);
-		this.grdOuter.addColorStop(1, Planets.const.planetGlowColor1);
-	}
-
-
-	//glow
-	context.beginPath();
-	context.fillStyle = this.grdOuter;
-	context.arc(x, y, r << 1, 0, PI2);
-	context.fill();
-
-	//circle & inner
-	context.beginPath();
-	context.lineStyle = Planets.const.planetBorderColor;
-	context.lineWidth = 4;
-	context.fillStyle = this.grdInner;
-	context.arc(x, y, r, 0, PI2);
-	context.stroke();
-	context.fill();
+	this.preRender.put(context, this.position.x, this.position.y);
 }
 
 

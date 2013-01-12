@@ -30,7 +30,7 @@ Planets.Level = {
 				rndx = ((x * avgGapX) - (rndGapX/2) + (Math.random() * rndGapX)) | 0;
 				rndy = ((y * avgGapY) - (rndGapY/2) + (Math.random() * rndGapY)) | 0;
 				rnds = (avgSize - (rndSize / 2) + (Math.random() * rndSize)) | 0;
-				o = new Planets.Renderable.Planet({x: rndx, y: rndy}, rnds, Planets.GeneratePlanetName());
+				o = (new Planets.Renderable.Planet({x: rndx, y: rndy}, rnds, Planets.GeneratePlanetName())).init();
 				//game.push(o);
 				//game.bgPush(o);
 				game.fxLayer.include(o);

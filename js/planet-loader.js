@@ -38,6 +38,14 @@ var Loader = {
 		}
 	],
 
+	// addFile : function(name, file) {
+	// 	this.files.push({
+	// 		file : file,
+	// 		name : name,
+	// 		finished : false
+	// 	});
+	// },
+
 	load : function() {
 
 		this.files.push({

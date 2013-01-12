@@ -214,6 +214,7 @@ var RenderLayer = {
 
 var PreRender = {
 
+	//Creates a prerender with rotation
 	createRotated : function(w, h, renderCallback, args) {
 		return ({
 
@@ -261,6 +262,45 @@ var PreRender = {
 					y - this.offsetY, 
 					this.w, 
 					this.h);
+			}
+
+		}).init(w, h, renderCallback, args);
+	},
+
+	//creates a prerender without rotation
+	createFixed : function(w, h, renderCallback, args) {
+		return ({
+
+			c : null,
+
+			w : 0,
+			h : 0,
+			offsetX : 0,
+			offsetY : 0,
+
+			init : function(w, h, renderCallback, args) {
+
+				this.c = document.createElement("canvas");
+				this.c.width = this.w = w;
+				this.c.height = this.h = h;
+				var ctx = this.c.getContext("2d");
+
+				args = [ctx].concat(args)
+				renderCallback.apply(this, args);
+
+				this.offsetX = (w/2) | 0;
+				this.offsetY = (h/2) | 0;
+
+				return this;
+
+			},
+
+			put : function(context, x, y) {
+
+				context.drawImage(
+					this.c, 
+					x - this.offsetX, 
+					y - this.offsetY);
 			}
 
 		}).init(w, h, renderCallback, args);
