@@ -35,8 +35,17 @@ var Loader = {
 			file : 'planet.js',
 			name : 'Game files',
 			finished : false
+		},
+		{
+			file : 'textures/planet-dirt.png',
+			name : 'Textures',
+			finished : false,
+			id : 'dirt-texture-1'
 		}
 	],
+
+
+	imageCache : {},
 
 	// addFile : function(name, file) {
 	// 	this.files.push({
@@ -130,26 +139,71 @@ var Loader = {
 		for(var i = 0; i < this.files.length; i++) {
 			if(!this.files[i].finished) {
 				console.log("Loading " + this.files[i].name + " (" + this.files[i].file + ")");
+
+				var suffix = Loader.getFileSuffix(this.files[i].file);
+
 				Loader.setLoadText("Loading: " + this.files[i].name);
-				$.getScript("js/" + this.files[i].file)
-					 .done((function() {
-					 	var which = i;
-					 	return function() {
-					 		Loader.files[which].finished = true;
-					 		Loader.checkFiles();
-					 	};
-					 })())
-					 .fail((function() {
-					 	var which = i;
-					 	return function() {
-							Loader.setLoadText("Error loading " + Loader.files[which].name, 'error');
-					 	};
-					 })());
+				
+				switch(suffix) {
+					case 'js':
+						Loader.loadScriptFile(i);
+						break;
+					case 'png':
+						Loader.loadImageFile(i);
+						break;
+				}
 				return true;
 			}
 		}
 
 		return false;
+	},
+
+	getFileSuffix : function(name) {
+		var i = name.lastIndexOf('.');
+		if(i == -1) return 'unknown';
+
+		return name.substring(i + 1);
+	},
+
+	loadImageFile : function(i) {
+		var img = document.createElement("img");
+
+		img.onload = (function() {
+			var which = i;
+			return function() {
+				Loader.files[which].finished = true;
+				Loader.imageCache[Loader.files[which].id] = img;
+				Loader.checkFiles();
+			}
+		})();
+
+		img.onerror = (function() {
+			var which = i;
+			return function() {
+				Loader.setLoadText("Error loading " + Loader.files[which].name, 'error');
+				console.log("Failed to load image: ", Loader.files[which].file);
+			}
+		})();
+
+		img.src = Loader.files[i].file;
+	},
+
+	loadScriptFile : function(i) {
+		$.getScript("js/" + this.files[i].file)
+			 .done((function() {
+			 	var which = i;
+			 	return function() {
+			 		Loader.files[which].finished = true;
+			 		Loader.checkFiles();
+			 	};
+			 })())
+			 .fail((function() {
+			 	var which = i;
+			 	return function() {
+					Loader.setLoadText("Error loading " + Loader.files[which].name, 'error');
+			 	};
+			 })());
 	},
 
 	checkFiles : function() {
@@ -183,12 +237,10 @@ var Loader = {
 		this.overlay.fadeOut((function() {
 			this.game.start();
 		}).bind(this));
+	},
 
-		// var qt = new Planets.QuadTree(0, 0, 100, 100, 2);
-		// qt.addElement(function(ev) {
-		// 	console.log("hallo 1 1", ev);
-		// }, 1, 1, 35, 35);
-
-		// qt.trigger(34, 30, "Hallo Welt");
+	getImage : function(id) {
+		if(!(id in this.imageCache)) return null;
+		return this.imageCache[id];
 	}
 };

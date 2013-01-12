@@ -383,6 +383,18 @@ Planets.Renderable.Planet.prototype.preRenderPlanet = function(context) {
 	context.arc(x, y, r, 0, PI2);
 	context.stroke();
 	context.fill();
+
+	var img = Loader.getImage('dirt-texture-1');
+	context.drawImage(
+		img, 
+		0, 
+		0, 
+		img.width, 
+		img.height, 
+		x - this.radius, 
+		y - this.radius, 
+		this.radius * 2, 
+		this.radius * 2);
 }
 
 Planets.Renderable.Planet.prototype.connect = function(planet) {
