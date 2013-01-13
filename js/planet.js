@@ -647,6 +647,7 @@ Planets.Renderable.Planet.prototype.renderPath = function(context, origin, targe
 }
 
 Planets.Renderable.Planet.prototype.bgRender = function(game, viewport, context, deltaTime, gameTime) {
+	if(!viewport.circleVisible(this.position.x, this.position.y, this.radius)) return;
 	this.preRender.put(context, this.position.x, this.position.y);
 }
 
