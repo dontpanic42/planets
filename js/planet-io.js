@@ -13,6 +13,7 @@ Planets.Viewport = function(game, w, h) {
 
 	$('body').css('background-color', Planets.const.viewportBackgroundColor);
 
+
 	this.jq_bgcanvas = $('<canvas></canvas>')
 	.width(this.vw)
 	.height(this.vh)
