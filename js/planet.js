@@ -395,6 +395,18 @@ Planets.Renderable.Planet.prototype.preRenderPlanet = function(context) {
 		y - this.radius, 
 		this.radius * 2, 
 		this.radius * 2);
+
+	// img = Loader.getImage('reflection-texture-1');
+	// context.drawImage(
+	// 	img, 
+	// 	0, 
+	// 	0, 
+	// 	img.width, 
+	// 	img.height, 
+	// 	x - this.radius, 
+	// 	y - this.radius, 
+	// 	this.radius * 2, 
+	// 	this.radius * 2);
 }
 
 Planets.Renderable.Planet.prototype.connect = function(planet) {

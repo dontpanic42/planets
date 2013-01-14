@@ -41,6 +41,12 @@ var Loader = {
 			name : 'Textures',
 			finished : false,
 			id : 'dirt-texture-1'
+		// },
+		// {
+		// 	file : 'textures/planet-reflection.png',
+		// 	name : 'Textures',
+		// 	finished : false,
+		// 	id : 'reflection-texture-1'
 		}
 	],
 

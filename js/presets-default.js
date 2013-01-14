@@ -12,14 +12,14 @@ Planets.const = {
 	/********* GAME CONSTANTS ********/
 
 	//Time in ms it takes to change the planet ownership.
-	planetOwnerChangeRate : 	10000,
+	planetOwnerChangeRate : 	25000,
 	//Time in ms to spawn new ships.
-	planetSpawnRate : 			20000,
+	planetSpawnRate : 			50000,
 	//If mor than planetSpawnMaxPresent ships of a fraction
 	//are in orbit, stop spawning (overpopulation)
 	planetSpawnMaxPresent : 	12,
 	//Basevalue for ship speed
-	shipBaseSpeed : 			80,
+	shipBaseSpeed : 			60,
 	//Random addition (0...n) to shipBaseSpeed
 	shipRandomSpeed : 			30,
 	//Influence of being in orbit on the ship speed
@@ -27,7 +27,7 @@ Planets.const = {
 	//Time in ms between firing
 	shipFireRate : 				4000,
 	//Max. ship helath
-	shipInitHealth : 			50,
+	shipInitHealth : 			80,
 	//The lowest possible orbit
 	shipOrbitOffsetMin : 		10,
 	//The highest possible orbit
@@ -65,7 +65,9 @@ Planets.const = {
 	/********* COLORS ********/
 	planetForegroundColors : 	["rgb(232, 221, 203)",
 								 "rgb(205, 179, 128)",
-								 "rgb(  0, 180, 204)",
+								 "rgb(165, 227, 224)",
+								 "rgb(239, 181, 143)",
+								 "rgb(190, 214, 152)",
 								 "rgb(240, 180, 158)"],
 	planetConnectionColor : 	"rgba(255, 255, 255, 0.3)",
 	planetPathColor : 			"rgba(255, 255, 255, 0.8)",
@@ -144,7 +146,7 @@ Planets.const = {
 //Defines colors and names of the different fractions
 var Fractions = [
 	{
-		color : "rgb(199, 244, 100)",
+		color : "rgb(107,194,70)",
 		name  : "Player"
 	},
 	{
