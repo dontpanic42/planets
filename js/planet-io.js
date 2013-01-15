@@ -142,9 +142,11 @@ Planets.Mouse = function(game, viewport) {
 	viewport.jq_canvas.mousewheel(this.wheelHandler.bind(this));
 	viewport.jq_canvas.bind('mousedown', this.downHandler.bind(this));
 	viewport.jq_canvas.bind('mouseup', this.upHandler.bind(this));
+	viewport.jq_canvas.bind('click', this.clickHandler.bind(this));
 
 	Planets.Event.add('over', viewport.w, viewport.h);
 	Planets.Event.add('over_a', viewport.vw, viewport.vh);
+	Planets.Event.add('click', viewport.w, viewport.h);
 	Planets.Event.add('delta');
 
 	Planets.Event.subscribe('over_a', viewport.moveUp.bind(viewport), 
@@ -191,6 +193,11 @@ Planets.Mouse.prototype.dispatchEvents = function() {
 		this.delta = 0;
 		d && Planets.Event.trigger('delta', d);
 	}
+}
+
+Planets.Mouse.prototype.clickHandler = function() {
+	//_Fire_ click events with the relative position.
+	Planets.Event.fire('click', this.position.x, this.position.y);
 }
 
 Planets.Mouse.prototype.handler = function(event) {

@@ -332,6 +332,16 @@ Planets.Renderable.Planet = function(position, radius, name) {
 		position.y - radius,
 		position.x + radius,
 		position.y + radius);
+	Planets.Event.subscribe('click', this.handleLocalClickPlusEvent.bind(this), 
+		position.x,
+		position.y - radius,
+		position.x + radius,
+		position.y + radius);
+	Planets.Event.subscribe('click', this.handleLocalClickMinusEvent.bind(this), 
+		position.x - radius,
+		position.y - radius,
+		position.x,
+		position.y + radius);
 	Planets.Event.subscribe('delta', this.handleLocalEvent.bind(this));
 
 	//Ownership stuff
@@ -375,6 +385,7 @@ Planets.Renderable.Planet.prototype.preRenderPlanet = function(context) {
 	context.arc(x, y, r << 1, 0, PI2);
 	context.fill();
 
+
 	//circle & inner
 	context.beginPath();
 	context.lineStyle = Planets.const.planetBorderColor;
@@ -383,6 +394,7 @@ Planets.Renderable.Planet.prototype.preRenderPlanet = function(context) {
 	context.arc(x, y, r, 0, PI2);
 	context.stroke();
 	context.fill();
+
 
 	var img = Loader.getImage('dirt-texture-1');
 	context.drawImage(
@@ -525,6 +537,18 @@ Planets.Renderable.Planet.prototype.handleLocalEvent = function(type, delta) {
 				this.ships[Fraction.Player].size)));
 			break;
 	}
+}
+
+Planets.Renderable.Planet.prototype.handleLocalClickPlusEvent = function(type) {
+	this.mouseOver && (this.shipSelected[Fraction.Player] = Math.max(0, Math.min(
+			this.shipSelected[Fraction.Player] + 1, 
+			this.ships[Fraction.Player].size)));
+}
+
+Planets.Renderable.Planet.prototype.handleLocalClickMinusEvent = function(type) {
+	this.mouseOver && (this.shipSelected[Fraction.Player] = Math.max(0, Math.min(
+			this.shipSelected[Fraction.Player] - 1, 
+			this.ships[Fraction.Player].size)));
 }
 
 Planets.Renderable.Planet.prototype.update = function(game, viewport, deltaTime, gameTime) {
